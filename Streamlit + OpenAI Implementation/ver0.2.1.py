@@ -1,17 +1,19 @@
 import streamlit as st
 import langchain
 from openai import OpenAI
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 import os
-import constants
-import chromadb
+# import constants
+# import chromadb
+from langchain_chroma import Chroma
 import hashlib
-import PyPDF2
 import io
 import requests
 from bs4 import BeautifulSoup
 import tempfile
+from langchain_core.documents import Document
+from docling_loader import DoclingPDFLoader
 
 # Initialize session state
 if 'messages' not in st.session_state:
@@ -31,42 +33,37 @@ if 'user_files_processed' not in st.session_state:
 if 'show_chat' not in st.session_state:
     st.session_state.show_chat = False
 
-# Configure Azure OpenAI
-# openai.api_key = constants.AZUREKEY
-# os.environ["AZURE_OPENAI_API_KEY"] = constants.AZUREKEY
-# os.environ["AZURE_OPENAI_ENDPOINT"] = "https://costproject.openai.azure.com/"
-# os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"] = "DeploymentCostSense-1"
-# os.environ["AZURE_OPENAI_API_VERSION"] = "2023-03-15-preview"
+llm= AzureChatOpenAI(
+    azure_endpoint="https://ai-gpu-ps.openai.azure.com/",
+    azure_deployment="gpt40-mini-long-context",  
+    api_version="2024-05-01-preview",  
+    api_key="dc415207c54e4dd8ba8b60cb66374822",
+    temperature=0.1,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2)
 
-# Initialize OpenAI client for embeddings
-openai_client = OpenAI(api_key=constants.APIKEY2)
+embeddings = AzureOpenAIEmbeddings(
+            azure_endpoint="https://ai-gpu-ps.openai.azure.com/",
+            azure_deployment="embedding",
+            openai_api_version="2024-05-01-preview",
+            api_key="dc415207c54e4dd8ba8b60cb66374822")
 
-# # Initialize LLM
-# llm = AzureChatOpenAI(
-#     azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
-#     azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
-#     openai_api_version=os.environ["AZURE_OPENAI_API_VERSION"],
-# )
-
-# Initialize LLM using LangChain's OpenAI wrapper
-llm = ChatOpenAI(
-    model="gpt-4-turbo-preview",  # or another appropriate model
-    api_key=constants.APIKEY2,
-    temperature=0.2
-)
-
-# Initialize ChromaDB
 PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_storage")
 os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
 
-chroma_client = chromadb.PersistentClient(path=PERSIST_DIRECTORY)
-company_collection = chroma_client.get_or_create_collection(
-    name="company_info_store",
-    metadata={"hnsw:space": "cosine"}
+# chroma_client = Chroma.PersistentClient(path=PERSIST_DIRECTORY)
+company_collection = Chroma(
+    collection_name="company_info_store",
+    persist_directory= PERSIST_DIRECTORY,
+    embedding_function=embeddings,
+    collection_metadata={"hnsw:space": "cosine"}
 )
-user_collection = chroma_client.get_or_create_collection(
-    name="user_info_store",
-    metadata={"hnsw:space": "cosine"}
+user_collection = Chroma(
+    collection_name="user_info_store",
+    persist_directory=PERSIST_DIRECTORY,
+    embedding_function=embeddings,
+    collection_metadata={"hnsw:space": "cosine"}
 )
 
 langchain.debug = True
@@ -79,17 +76,10 @@ def calculate_sha256(content):
 
 def extract_text_from_pdf(pdf_file):
     """Extract text content from PDF."""
-    pdf_reader = PyPDF2.PdfReader(pdf_file)
-    text_content = []
-    
-    for page_num in range(len(pdf_reader.pages)):
-        text = pdf_reader.pages[page_num].extract_text()
-        text_content.append({
-            "content": text,
-            "page_number": page_num + 1
-        })
-    
-    return text_content
+    loader = DoclingPDFLoader(pdf_file)
+    docs = loader.load_and_split()
+    print(docs)
+    return docs
 
 def extract_text_from_url(url):
     """Extract text content from webpage."""
@@ -112,88 +102,113 @@ def extract_text_from_url(url):
     except Exception as e:
         st.error(f"Error extracting text from URL: {str(e)}")
         return []
-
-def get_embeddings(text):
-    """Get embeddings using OpenAI API."""
-    response = openai_client.embeddings.create(
-        input=text,
-        model="text-embedding-ada-002"
-    )
-    return response.data[0].embedding
+    
 
 def process_and_store_content(content, collection, source_type, source_name):
-    """Process and store content in vector database."""
+    """
+    Process and store content in vector database.
+
+    Args:
+        content (list of dict): List of document chunks, each containing text and metadata.
+        collection: The vector store collection.
+        source_type (str): Type of the source (e.g., 'PDF', 'Website').
+        source_name (str): Name of the source (e.g., 'file_name.pdf').
+    """
+    # Generate a unique hash for the content
     content_hash = calculate_sha256(str(content))
-    
+    print("CONTENT HASH:", content_hash)
+
     try:
-        existing_docs = collection.get(
-            where={"content_hash": content_hash}
-        )
-        
+        # Check if the document already exists
+        existing_docs = collection.get(where={"content_hash": content_hash})
+
+        # If no existing documents with the same hash, add them to the vector store
         if not existing_docs['ids']:
+            # Process each chunk of the content
+            chunk_metadatas = []
+            chunk_ids = []
+            chunk_documents = []
+
             for chunk in content:
-                embeddings = get_embeddings(chunk["content"])
-                
-                collection.add(
-                    embeddings=[embeddings],
-                    documents=[chunk["content"]],
-                    metadatas=[{
+                # print("CONTENT TYPE:", type(content))
+                # print("CONTENT EXAMPLE:", content[:2])
+                # print("CHUNK TYPE:", type(chunk))
+                # print("CHUNK:", chunk)
+                if hasattr(chunk, "page_content"):
+                    metadata={
                         "source_type": source_type,
                         "source_name": source_name,
-                        "page_number": chunk["page_number"],
+                        "page_number": chunk.metadata.get("page_number", 1),
                         "content_hash": content_hash
-                    }],
-                    ids=[f"{content_hash}_chunk_{chunk['page_number']}"]
+                    }
+                    doc = Document(
+                        page_content=chunk.page_content,  # Text of the chunk
+                        metadata=metadata  # Attach metadata
+                    )
+                    chunk_ids.append(f"{content_hash}_chunk_{chunk.metadata.get('page_number', 1)}")
+                    chunk_documents.append(doc)
+
+                # print("Chunk Documents:", chunk_documents)
+                # print("Chunk Metadatas:", chunk_metadatas)
+                # print("Chunk IDs:", chunk_ids)
+                collection.add_documents(
+                    documents=chunk_documents,
+                    ids=chunk_ids
                 )
-            
-            return True
-        return False
+                print(f"Successfully added {len(chunk_documents)} chunks to the vector store.")
+                return "success"
+        else:
+            print("Document already exists in the vector store.")
+            return "file_exists"
+
+
     except Exception as e:
-        st.error(f"Error processing content: {str(e)}")
-        return False
+        print(f"Error adding documents: {e}")
+
+
 
 def query_collections(query_text, n_results=3):
     """Query both collections and combine results."""
-    query_embedding = get_embeddings(query_text)
-    
     try:
-        company_results = company_collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results
+        # Fetch company and user results
+        company_results = company_collection.similarity_search_by_vector(
+            embedding=embeddings.embed_query(query_text), k=1
         )
-        user_results = user_collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results
+        user_results = user_collection.similarity_search_by_vector(
+            embedding=embeddings.embed_query(query_text), k=1
         )
         
-        # Format results with clear section headers
+        # Initialize context
         context = {
             "COMPANY INFO": [],
             "USER INFO": []
         }
         
-        if company_results['documents'][0]:
-            context["COMPANY INFO"].extend([
-                f"{company_results['documents'][0][i]}"
-                for i in range(len(company_results['documents'][0]))
-            ])
-        if user_results['documents'][0]:
-            context["USER INFO"].extend([
-                f"{user_results['documents'][0][i]}"
-                for i in range(len(user_results['documents'][0]))
-            ])
-            
-        # Format the context string with clear section markers
+        # Process company results
+        if company_results and len(company_results) > 0:
+            for result in company_results:
+                if hasattr(result, "page_content"):
+                    context["COMPANY INFO"].append(result.page_content)
+
+        # Process user results
+        if user_results and len(user_results) > 0:
+            for result in user_results:
+                if hasattr(result, "page_content"):
+                    context["USER INFO"].append(result.page_content)
+        
+        # Format the context string
         formatted_context = ""
         if context["COMPANY INFO"]:
             formatted_context += "<< COMPANY INFO >>\n" + "\n".join(context["COMPANY INFO"]) + "\n\n"
         if context["USER INFO"]:
             formatted_context += "<< USER INFO >>\n" + "\n".join(context["USER INFO"])
-            
+        
         return formatted_context
     except Exception as e:
         st.error(f"Error querying collections: {str(e)}")
         return ""
+
+
 
 def clear_collections():
     """Clear all data from collections."""
@@ -229,7 +244,7 @@ You are an AI assistant designed to contact potential business prospects via cha
 1. First Message Format:
 - Use the user information to personalize your greeting
 - Format: "Hi [name]! I'm an AI assistant from [company]. Do you have a few minutes to chat?"
-- If no name is found, use the above greeting without the name parameter to make it generic
+- If no name is found, use the above greeting without the name parameter to make it generic and use the company name provided in the
 
 2. Identify if the prospect is experiencing known problems:
  Utilise data in << USER INFO >> to infer which one of the company's solutions would be most relevant to the user.
@@ -269,70 +284,162 @@ Constraints:
 - Do not generate the user's response for them. Generate ONLY the AI response message.
 '''
 
-# Streamlit UI
+current_directory=os.getcwd()
+logo_path=os.path.join(current_directory,"images","Caze Business Connection AI Logo Transparent.png")
+caze_path=os.path.join(current_directory,"images","Caze Logo White transparent horiz.png")
+
+st.sidebar.image(logo_path, width=300)
+
+# Load Lottie Animation (arrow pointing left)
+# st.sidebar.title("Upload Section")
+
+# Main content
+st.info("👈 Let's start by uploading the informations of the company and the user.")
+
+
+
 st.title("AI Sales Assistant")
 
-# Sidebar for data input
-with st.sidebar:
-    st.header("Input Data")
-    
-    # Company Information
-    st.subheader("Company Information")
+# Initialize session state variables
+if "company_files_processed" not in st.session_state:
+    st.session_state.company_files_processed = 0
+
+if "user_files_processed" not in st.session_state:
+    st.session_state.user_files_processed = 0
+
+with st.sidebar.expander("💻 Workspace",expanded=False):
+    st.header("This is the workspace")
+
+# Sidebar for Input Data
+with st.sidebar.expander("⚙ Settings",expanded=False):
+    # Company Information Section
+    st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"], key="company_source")
     
     if company_source == "PDF":
         company_files = st.file_uploader("Upload company information PDFs", type="pdf", accept_multiple_files=True, key="company_files")
-        if company_files:
-            for file in company_files:
-                content = extract_text_from_pdf(io.BytesIO(file.getvalue()))
-                if process_and_store_content(content, company_collection, "pdf", file.name):
-                    st.session_state.company_files_processed += 1
-                    st.success(f"Processed: {file.name}")
-    else:
+        
+        if company_files and st.button("Process Company Files", key="process_company_files"):
+            st.info(f"Processing {len(company_files)} company file(s)...")  # Inform the user about the upload
+            
+            # Initialize a progress bar
+            company_progress_bar = st.progress(0)
+            total_company_files = len(company_files)
+            
+            for idx, file in enumerate(company_files):
+                try:
+                    # Save the uploaded file temporarily
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                        temp_file.write(file.getvalue())
+                        temp_file_path = temp_file.name
+                    
+                    # Extract content from the PDF
+                    content = extract_text_from_pdf(temp_file_path)
+                    
+                    # Process and store the content
+                    result = process_and_store_content(content, company_collection, "pdf", file.name)
+                    
+                    if result == "file_exists":
+                        st.warning(f"Company file already exists: {file.name}")
+                        st.session_state.company_files_processed += 1
+                    elif result == "success":
+                        st.success(f"Processed company file successfully: {file.name}")
+                        st.session_state.company_files_processed += 1
+                    else:
+                        st.error(f"Failed to process company file: {file.name}")
+                    
+                except Exception as e:
+                    st.error(f"Error processing company file {file.name}: {e}")
+                company_progress_bar.progress((idx + 1) / total_company_files)
+            st.success("All company files have been processed!")
+
+    elif company_source == "URL":
         company_urls = st.text_area("Enter company website URLs (one per line):", key="company_urls")
-        if company_urls and st.button("Process Company URLs"):
+        if company_urls and st.button("Process Company URLs", key="process_company_urls"):
             urls = company_urls.split('\n')
             for url in urls:
                 if url.strip():
                     content = extract_text_from_url(url.strip())
-                    if process_and_store_content(content, company_collection, "url", url.strip()):
-                        st.session_state.company_files_processed += 1
-                        st.success(f"Processed: {url.strip()}")
-    
-    # User Information
-    st.subheader("User Information")
+                    result = process_and_store_content(content, company_collection, "url", url.strip())
+                    if result == "file_exists":
+                        st.warning(f"Company URL already exists: {url.strip()}")
+                    elif result == "success":
+                        st.success(f"Processed company URL successfully: {url.strip()}")
+                    else:
+                        st.error(f"Failed to process company URL: {url.strip()}")
+
+    st.header("User Information")
     user_source = st.radio("Select user info source:", ["PDF", "URL"], key="user_source")
     
     if user_source == "PDF":
         user_files = st.file_uploader("Upload user information PDFs", type="pdf", accept_multiple_files=True, key="user_files")
-        if user_files:
-            for file in user_files:
-                content = extract_text_from_pdf(io.BytesIO(file.getvalue()))
-                if process_and_store_content(content, user_collection, "pdf", file.name):
-                    st.session_state.user_files_processed += 1
-                    st.success(f"Processed: {file.name}")
-    else:
+        
+        if user_files and st.button("Process User Files", key="process_user_files"):
+            st.info(f"Processing {len(user_files)} user file(s)...")  # Inform the user about the upload
+            
+            # Initialize a progress bar
+            user_progress_bar = st.progress(0)
+            total_user_files = len(user_files)
+            
+            for idx, file in enumerate(user_files):
+                try:
+                    # Save the uploaded file temporarily
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                        temp_file.write(file.getvalue())
+                        temp_file_path = temp_file.name
+                    
+                    # Extract content from the PDF
+                    content = extract_text_from_pdf(temp_file_path)
+                    
+                    # Process and store the content
+                    result = process_and_store_content(content, user_collection, "pdf", file.name)
+                    
+                    if result == "file_exists":
+                        st.warning(f"User file already exists: {file.name}")
+                        st.session_state.user_files_processed += 1
+                    elif result == "success":
+                        st.success(f"Processed user file successfully: {file.name}")
+                        st.session_state.user_files_processed += 1
+                    else:
+                        st.error(f"Failed to process user file: {file.name}")
+                    
+                except Exception as e:
+                    st.error(f"Error processing user file {file.name}: {e}")
+                
+                # Update the progress bar
+                user_progress_bar.progress((idx + 1) / total_user_files)
+            
+            # Completion message
+            st.success("All user files have been processed!")
+
+    elif user_source == "URL":
         user_urls = st.text_area("Enter user profile URLs (one per line):", key="user_urls")
-        if user_urls and st.button("Process User URLs"):
+        if user_urls and st.button("Process User URLs", key="process_user_urls"):
             urls = user_urls.split('\n')
             for url in urls:
                 if url.strip():
                     content = extract_text_from_url(url.strip())
-                    if process_and_store_content(content, user_collection, "url", url.strip()):
-                        st.session_state.user_files_processed += 1
-                        st.success(f"Processed: {url.strip()}")
-    
-    if st.button("Clear All Data"):
-        if clear_collections():
-            st.success("All data cleared")
-            st.session_state.conversation_started = False
-            st.session_state.conversation_ended = False
-            st.session_state.messages = []
-            st.session_state.company_files_processed = 0
-            st.session_state.user_files_processed = 0
-            st.session_state.show_chat = False
-            st.rerun()
-
+                    result = process_and_store_content(content, user_collection, "url", url.strip())
+                    if result == "file_exists":
+                        st.warning(f"User URL already exists: {url.strip()}")
+                    elif result == "success":
+                        st.success(f"Processed user URL successfully: {url.strip()}")
+                    else:
+                        st.error(f"Failed to process user URL: {url.strip()}")
+with st.sidebar.expander("🆘Help",expanded=False):
+        if st.button("Clear All Data"):
+            if clear_collections():
+                st.success("All data cleared")
+                st.session_state.conversation_started = False
+                st.session_state.conversation_ended = False
+                st.session_state.messages = []
+                st.session_state.company_files_processed = 0
+                st.session_state.user_files_processed = 0
+                st.session_state.show_chat = False
+                st.rerun()
+# for _ in range(8):  
+    # st.sidebar.write("")
+st.sidebar.image(caze_path, use_container_width=True)
 # Start Conversation button
 if st.button("Start Conversation"):
     if st.session_state.company_files_processed > 0 and st.session_state.user_files_processed > 0:
@@ -390,7 +497,7 @@ if st.session_state.show_chat:
             st.session_state.messages.append(AIMessage(content=response.content))
             st.chat_message("assistant").write(response.content)
             
-        # Check for conversation end
-        if "have a great day" in response.content.lower():
-            st.session_state.conversation_ended = True
-            st.rerun()
+            # Check for conversation end
+            if "have a great day" in response.content.lower():
+                st.session_state.conversation_ended = True
+                st.rerun()
