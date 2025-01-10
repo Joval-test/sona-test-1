@@ -4,8 +4,7 @@ from openai import OpenAI
 from langchain_openai import ChatOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain.schema import SystemMessage, HumanMessage, AIMessage
 import os
-# import constants
-# import chromadb
+import base64
 from langchain_chroma import Chroma
 import hashlib
 import io
@@ -125,7 +124,6 @@ def process_and_store_content(content, collection, source_type, source_name):
         # If no existing documents with the same hash, add them to the vector store
         if not existing_docs['ids']:
             # Process each chunk of the content
-            chunk_metadatas = []
             chunk_ids = []
             chunk_documents = []
 
@@ -285,20 +283,11 @@ Constraints:
 '''
 
 current_directory=os.getcwd()
-logo_path=os.path.join(current_directory,"images","Caze Business Connection AI Logo Transparent.png")
-caze_path=os.path.join(current_directory,"images","Caze Logo White transparent horiz.png")
+logo_path=os.path.join(current_directory,"images","logo_transparent.png")
+caze_path=os.path.join(current_directory,"images","caze_logo_white_trans.png")
+icon_path=os.path.join(current_directory,"images","icon.png")
 
 st.sidebar.image(logo_path, width=300)
-
-# Load Lottie Animation (arrow pointing left)
-# st.sidebar.title("Upload Section")
-
-# Main content
-st.info("👈 Let's start by uploading the informations of the company and the user.")
-
-
-
-st.title("AI Sales Assistant")
 
 # Initialize session state variables
 if "company_files_processed" not in st.session_state:
@@ -306,12 +295,61 @@ if "company_files_processed" not in st.session_state:
 
 if "user_files_processed" not in st.session_state:
     st.session_state.user_files_processed = 0
+if "show_chat" not in st.session_state:
+    st.session_state.show_chat = False
+if "conversation_started" not in st.session_state:
+    st.session_state.conversation_started = False
+if "hide_info_bar" not in st.session_state:
+    st.session_state.hide_info_bar = False
+
+if not st.session_state.hide_info_bar:
+    st.info("👈 Let's start by uploading the informations of the company and the user.")
+
+
+# # Create two columns
+# col1, col2 = st.columns([0.2, 0.9])
+
+# # Add the icon in the first column
+# with col1:
+#     st.image(icon_path, width=400)  # Adjust the width to fit your design
+
+# # Add the title in the second column
+# with col2:
+#     st.title("Caze BizConAI")
+
+with open(icon_path, "rb") as image_file:
+    encoded_image = base64.b64encode(image_file.read()).decode()
+
+st.write("")
+st.write("")
+st.write("")
+image_and_heading_html = f"""
+<div style="display: flex; justify-content:center;">
+    <img src="data:image/png;base64,{encoded_image}" style="width: 75px; height: 75px; object-fit: contain; position: relative; left: -37px;">
+    <h1 style="font-size: 2rem; margin: 0; z-index: 2; position: relative; left: -32px; top: -5px; color: #BE232F;">
+            Caze <span style="color: #304654;">BizConAI</span>
+</div>
+"""
+st.markdown(image_and_heading_html,unsafe_allow_html=True)
+st.write("")
+
+# Initialize session state variables
+if "company_files_processed" not in st.session_state:
+    st.session_state.company_files_processed = 0
+if "user_files_processed" not in st.session_state:
+    st.session_state.user_files_processed = 0
+if "show_chat" not in st.session_state:
+    st.session_state.show_chat = False
+if "conversation_started" not in st.session_state:
+    st.session_state.conversation_started = False
+if "hide_info_bar" not in st.session_state:
+    st.session_state.hide_info_bar = False
 
 with st.sidebar.expander("💻 Workspace",expanded=False):
     st.header("This is the workspace")
 
 # Sidebar for Input Data
-with st.sidebar.expander("⚙ Settings",expanded=False):
+with st.sidebar.expander("🛠️ Settings",expanded=False):
     # Company Information Section
     st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"], key="company_source")
@@ -426,7 +464,8 @@ with st.sidebar.expander("⚙ Settings",expanded=False):
                         st.success(f"Processed user URL successfully: {url.strip()}")
                     else:
                         st.error(f"Failed to process user URL: {url.strip()}")
-with st.sidebar.expander("🆘Help",expanded=False):
+                        
+with st.sidebar.expander("❔Help",expanded=False):
         if st.button("Clear All Data"):
             if clear_collections():
                 st.success("All data cleared")
@@ -437,37 +476,39 @@ with st.sidebar.expander("🆘Help",expanded=False):
                 st.session_state.user_files_processed = 0
                 st.session_state.show_chat = False
                 st.rerun()
-# for _ in range(8):  
-    # st.sidebar.write("")
+
 st.sidebar.image(caze_path, use_container_width=True)
 # Start Conversation button
-if st.button("Start Conversation"):
-    if st.session_state.company_files_processed > 0 and st.session_state.user_files_processed > 0:
+button_container = st.empty()
+
+if button_container.button('Start Conversation'):
+    if st.session_state.get("company_files_processed", 0) > 0 and st.session_state.get("user_files_processed", 0) > 0:
         st.session_state.show_chat = True
+        st.session_state.hide_info_bar=True
+        button_container.empty()
     else:
         st.error("Please upload and process at least one company file/URL and one user file/URL before starting the conversation.")
 
-# Main chat interface
 if st.session_state.show_chat:
     if not st.session_state.conversation_started:
+        
         initial_context = query_collections("company information and user information", n_results=5)
         if initial_context:
             system_message = create_system_message(initial_context)
             initial_messages = [system_message]
-            
-            # Get initial response
+            st.session_state.conversation_started = True
+
             response = llm(initial_messages)
             st.session_state.messages = initial_messages + [AIMessage(content=response.content)]
             st.session_state.conversation_started = True
         else:
             st.error("No context found. Please ensure company and user information has been properly processed.")
             st.session_state.show_chat = False
-            
+      
     # Display chat history
-
     for message in st.session_state.messages[1:]:
         if isinstance(message, AIMessage):
-            st.chat_message("assistant").write(message.content)
+            st.chat_message("assistant", avatar=icon_path).write(message.content)
         elif isinstance(message, HumanMessage):
             st.chat_message("user").write(message.content)
 
