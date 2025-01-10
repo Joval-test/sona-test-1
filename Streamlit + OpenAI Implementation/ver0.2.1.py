@@ -33,27 +33,22 @@ if 'user_files_processed' not in st.session_state:
 if 'show_chat' not in st.session_state:
     st.session_state.show_chat = False
 
-# Configure Azure OpenAI
-# openai.api_key = constants.AZUREKEY
-# os.environ["AZURE_OPENAI_API_KEY"] = constants.AZUREKEY
-# os.environ["AZURE_OPENAI_ENDPOINT"] = "https://costproject.openai.azure.com/"
-# os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"] = "DeploymentCostSense-1"
-# os.environ["AZURE_OPENAI_API_VERSION"] = "2023-03-15-preview"
+llm= AzureChatOpenAI(
+    azure_endpoint="https://ai-gpu-ps.openai.azure.com/",
+    azure_deployment="gpt40-mini-long-context",  
+    api_version="2024-05-01-preview",  
+    api_key="dc415207c54e4dd8ba8b60cb66374822",
+    temperature=0.1,
+    max_tokens=None,
+    timeout=None,
+    max_retries=2)
 
-# # Initialize OpenAI client for embeddings
-# openai_client = OpenAI(api_key=constants.APIKEY2)
+embeddings = AzureOpenAIEmbeddings(
+            azure_endpoint="https://ai-gpu-ps.openai.azure.com/",
+            azure_deployment="embedding",
+            openai_api_version="2024-05-01-preview",
+            api_key="dc415207c54e4dd8ba8b60cb66374822")
 
-# # Initialize LLM
-
-
-# # Initialize LLM using LangChain's OpenAI wrapper
-# llm = ChatOpenAI(
-#     model="gpt-4-turbo-preview",  # or another appropriate model
-#     api_key=constants.APIKEY2,
-#     temperature=0.2
-# )
-
-# Initialize ChromaDB
 PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_storage")
 os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
 
@@ -175,6 +170,7 @@ def process_and_store_content(content, collection, source_type, source_name):
 def query_collections(query_text, n_results=3):
     """Query both collections and combine results."""
     try:
+        # Fetch company and user results
         company_results = company_collection.similarity_search_by_vector(
             embedding=embeddings.embed_query(query_text), k=1
         )
@@ -182,7 +178,7 @@ def query_collections(query_text, n_results=3):
             embedding=embeddings.embed_query(query_text), k=1
         )
         
-        # Format results with clear section headers
+        # Initialize context
         context = {
             "COMPANY INFO": [],
             "USER INFO": []
@@ -190,15 +186,17 @@ def query_collections(query_text, n_results=3):
         
         # Process company results
         if company_results and len(company_results) > 0:
-            company_documents = company_results[0].get('documents', [])
-            context["COMPANY INFO"].extend(company_documents)
+            for result in company_results:
+                if hasattr(result, "page_content"):
+                    context["COMPANY INFO"].append(result.page_content)
 
         # Process user results
         if user_results and len(user_results) > 0:
-            user_documents = user_results[0].get('documents', [])
-            context["USER INFO"].extend(user_documents)
+            for result in user_results:
+                if hasattr(result, "page_content"):
+                    context["USER INFO"].append(result.page_content)
         
-        # Format the context string with clear section markers
+        # Format the context string
         formatted_context = ""
         if context["COMPANY INFO"]:
             formatted_context += "<< COMPANY INFO >>\n" + "\n".join(context["COMPANY INFO"]) + "\n\n"
@@ -209,6 +207,7 @@ def query_collections(query_text, n_results=3):
     except Exception as e:
         st.error(f"Error querying collections: {str(e)}")
         return ""
+
 
 
 def clear_collections():
@@ -245,7 +244,7 @@ You are an AI assistant designed to contact potential business prospects via cha
 1. First Message Format:
 - Use the user information to personalize your greeting
 - Format: "Hi [name]! I'm an AI assistant from [company]. Do you have a few minutes to chat?"
-- If no name is found, use the above greeting without the name parameter to make it generic
+- If no name is found, use the above greeting without the name parameter to make it generic and use the company name provided in the
 
 2. Identify if the prospect is experiencing known problems:
  Utilise data in << USER INFO >> to infer which one of the company's solutions would be most relevant to the user.
@@ -291,13 +290,8 @@ caze_path=os.path.join(current_directory,"images","Caze Logo White transparent h
 
 st.sidebar.image(logo_path, width=300)
 
-# Create a sidebar icon
-# st.sidebar.image("path/to/your/icon.png", width=50)
-from streamlit_lottie import st_lottie
-import json
-
 # Load Lottie Animation (arrow pointing left)
-st.sidebar.title("Upload Section")
+# st.sidebar.title("Upload Section")
 
 # Main content
 st.info("👈 Let's start by uploading the informations of the company and the user.")
@@ -313,8 +307,11 @@ if "company_files_processed" not in st.session_state:
 if "user_files_processed" not in st.session_state:
     st.session_state.user_files_processed = 0
 
+with st.sidebar.expander("💻 Workspace",expanded=False):
+    st.header("This is the workspace")
+
 # Sidebar for Input Data
-with st.sidebar.expander("Upload Company Information",expanded=False):
+with st.sidebar.expander("⚙ Settings",expanded=False):
     # Company Information Section
     st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"], key="company_source")
@@ -371,7 +368,6 @@ with st.sidebar.expander("Upload Company Information",expanded=False):
                     else:
                         st.error(f"Failed to process company URL: {url.strip()}")
 
-with st.sidebar.expander("Upload User Information",expanded=False):
     st.header("User Information")
     user_source = st.radio("Select user info source:", ["PDF", "URL"], key="user_source")
     
@@ -430,20 +426,19 @@ with st.sidebar.expander("Upload User Information",expanded=False):
                         st.success(f"Processed user URL successfully: {url.strip()}")
                     else:
                         st.error(f"Failed to process user URL: {url.strip()}")
-
-with st.sidebar:
-    if st.button("Clear All Data"):
-        if clear_collections():
-            st.success("All data cleared")
-            st.session_state.conversation_started = False
-            st.session_state.conversation_ended = False
-            st.session_state.messages = []
-            st.session_state.company_files_processed = 0
-            st.session_state.user_files_processed = 0
-            st.session_state.show_chat = False
-            st.rerun()
-for _ in range(8):  
-    st.sidebar.write("")
+with st.sidebar.expander("🆘Help",expanded=False):
+        if st.button("Clear All Data"):
+            if clear_collections():
+                st.success("All data cleared")
+                st.session_state.conversation_started = False
+                st.session_state.conversation_ended = False
+                st.session_state.messages = []
+                st.session_state.company_files_processed = 0
+                st.session_state.user_files_processed = 0
+                st.session_state.show_chat = False
+                st.rerun()
+# for _ in range(8):  
+    # st.sidebar.write("")
 st.sidebar.image(caze_path, use_container_width=True)
 # Start Conversation button
 if st.button("Start Conversation"):
