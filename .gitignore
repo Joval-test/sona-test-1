@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+text2sql-frontend/
+text2sql-backend/
+node_modules/
+db.sqlite3
+*.pyc
+chroma_storage/
+*.bin
