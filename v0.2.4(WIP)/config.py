@@ -12,5 +12,5 @@ os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
 
 CURRENT_DIRECTORY = os.getcwd()
 LOGO_PATH = os.path.join(CURRENT_DIRECTORY, "images", "logo_transparent.png")
-CAZE_PATH = os.path.join(CURRENT_DIRECTORY, "images", "caze_logo_white_trans.png")
+CAZE_PATH = os.path.join(CURRENT_DIRECTORY, "images", "caze_labs_logo.png")
 ICON_PATH = os.path.join(CURRENT_DIRECTORY, "images", "icon.png")
