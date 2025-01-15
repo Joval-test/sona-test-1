@@ -3,7 +3,9 @@ import os
 from clients import *
 from prompts import *
 from vector_store import *
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
+from langchain.schema import HumanMessage, AIMessage
+from langchain_core.prompts import ChatPromptTemplate
+from langchain.chains.combine_documents import create_stuff_documents_chain
 import pandas as pd
 import base64
 
@@ -157,34 +159,75 @@ def handle_user_input(llm, embeddings, company_collection, user_collection):
             st.chat_message("assistant", avatar=config.ICON_PATH).write(response.content)
             
             if "have a great day" in response.content.lower():
-                messages=st.session_state.messages
-                # print(messages)
-                prompt=f"Can you provide a summary of this conversation so far?{messages}"
-                summary=llm.invoke(prompt)
-                print(summary.content)
+                conversation=st.session_state.messages
+                messages_content = [f"{type(message).__name__}: {message.content}" 
+                    for message in conversation 
+                    if not isinstance(message, SystemMessage)]
+                print("\n".join(messages_content))
+                prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words or more, provide everything including the contact details. "
+                prompt_status = f"Based on the following conversation {messages_content}, can you categorize the user's interest level as one of the following: 'Hot':very interested, 'Warm':partially interested, or 'Cold': not interested? Give just one word answer"
                 df = st.session_state.user_data_df
                 df_phone= str(st.session_state.phone_number)
-                df_name=str(st.session_state.user_name)
-                create_workspace_file(df_name,df_phone,summary.content)
+                prepare_summary(llm,prompt_summary,df,df_phone)
+                prepare_status(llm,prompt_status,df,df_phone)
                 st.session_state.conversation_ended = True
                 st.rerun()
 
 
-                
-                
-def create_workspace_file(df_name,df_phone,info):
-    filename = f"{df_name}_{df_phone}"
-    workspace_dir = 'workspaces' 
 
-    if not os.path.exists(workspace_dir):
-        os.makedirs(workspace_dir)
+def prepare_summary(llm,prompt,df,df_phone):
+    summary=llm.invoke(prompt)
+    print(summary.content)
+    try:
+        df['Phone Number'] = df['Phone Number'].astype(str)
+        df_phone = str(df_phone)
         
-    file_path = os.path.join(workspace_dir, f"{filename}.txt")
+        matched_row = df[df['Phone Number'] == df_phone]
+            
+        if not matched_row.empty:
+            # Update the 'Chat Summary' column
+            index = matched_row.index[0]
+            if pd.notna(df.at[index, 'Chat Summary']):
+                df.at[index, 'Chat Summary'] += f" {summary.content}"
+            else:
+                df.at[index, 'Chat Summary'] = summary.content
+            save_path=config.REPORT_PATH    
+            df.to_excel(save_path, index=False)
+            name=st.session_state.user_name
+            print(f"Chat summary updated successfully for Member: {name}")
+            return True
 
-    with open(file_path, 'w') as file:
-        file.write(info)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+    
+def prepare_status(llm,prompt_summary,df,df_phone):
+    status=llm.invoke(prompt_summary)
+    print(status.content)
+    try:
+        df['Phone Number'] = df['Phone Number'].astype(str)
+        df_phone = str(df_phone)
+        
+        matched_row = df[df['Phone Number'] == df_phone]
+            
+        if not matched_row.empty:
+            # Update the 'Status' column
+            index = matched_row.index[0]
+            if pd.notna(df.at[index, 'Chat Summary']):
+                df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = f" {status.content}"
+            else:
+                df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = status.content
+            save_path=config.REPORT_PATH    
+            df.to_excel(save_path, index=False)
+            name=st.session_state.user_name
+            print(f"Chat summary updated successfully for Member: {name}")
+            return True
 
-    print(f"File created at: {file_path}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return False
+    
+                
                 
 def load_user_data():
     data_path=config.REPORT_PATH
@@ -195,40 +238,41 @@ def match_user_data(phone):
     """Match phone number with user data and store in vector DB."""
     if st.session_state.user_data_df is None:
         return None
-
+    print("This is the phone given for matching",phone)
     df = st.session_state.user_data_df
-    # Convert phone numbers to strings for comparison
     df['Phone Number'] = df['Phone Number'].astype(str)
     phone = str(phone)
 
     matched_user = df[df['Phone Number'] == phone]
+    print("Matched User:",matched_user)
     if not matched_user.empty:
         user_data = matched_user.iloc[0]
         st.session_state.matched_user_data = {
-            'Status': user_data['Status'],
+            'Status': user_data['Status (Hot/Warm/Cold/Not Responded)'],
             'ID': user_data['ID'],
             'Name': user_data['Name'],
             'Company': user_data['Company'],
             'Phone Number': user_data['Phone Number'],
             'Age': int(user_data['Age']),  # Ensure age is an integer
             'Description': user_data['Description'],
-            'Source': user_data['Source'],
+            'Source': user_data['source'],
             'Connected': user_data['Connected'],
             'Chat Summary': user_data['Chat Summary']
         }
         st.session_state.user_name = user_data['Name']
+        print(user_data['Name'])
 
         # Create a document for the matched user data
         user_doc = Document(
             page_content=(
-                f"Status: {user_data['Status']}\n"
+                f"Status: {user_data['Status (Hot/Warm/Cold/Not Responded)']}\n"
                 f"ID: {user_data['ID']}\n"
                 f"Name: {user_data['Name']}\n"
                 f"Company: {user_data['Company']}\n"
                 f"Phone Number: {user_data['Phone Number']}\n"
                 f"Age: {user_data['Age']}\n"
                 f"Description: {user_data['Description']}\n"
-                f"Source: {user_data['Source']}\n"
+                f"Source: {user_data['source']}\n"
                 f"Connected: {user_data['Connected']}\n"
                 f"Chat Summary: {user_data['Chat Summary']}"
             ),
