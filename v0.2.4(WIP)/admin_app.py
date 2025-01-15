@@ -10,6 +10,8 @@ import pandas as pd
 from config import *
 from workspace import *
 from streamlit_option_menu import option_menu
+from datetime import datetime
+from io import BytesIO
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -34,6 +36,8 @@ def initialize_session_state():
         st.session_state.company_collection = None
     if 'user_collection' not in st.session_state:
         st.session_state.user_collection = None
+    if "file_processing_log" not in st.session_state:
+        st.session_state["file_processing_log"] = []
     
     
     # if 'user_data_df' not in st.session_state:
@@ -46,6 +50,8 @@ def initialize_session_state():
         st.session_state.input_interface_visible = True
     if 'age_warning_confirmed' not in st.session_state:
         st.session_state.age_warning_confirmed = False
+        
+        
 def setup_company_section():
     st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"], key="company_source")
@@ -66,7 +72,8 @@ def setup_user_section():
     user_files = st.file_uploader(
                 label="",  # Remove default label
                 type=['xlsx', 'xls', 'csv'],
-                help="Upload Excel (.xlsx/.xls) or CSV file with columns: ID, Name, Company, Phone Number, Age, Description"
+                help="Upload Excel (.xlsx/.xls) or CSV file with columns: ID, Name, Company, Phone Number, Age, Description",
+                accept_multiple_files=True, 
             )
     if user_files and st.button("Process User Files", key="process_user_files"):
             process_user_files(user_files)
@@ -92,7 +99,7 @@ def setup_sidebar():
         font-weight: bold;
         width: 100%; /* Full width */
         display: block; /* Stack buttons vertically */
-        text-align: middle; /* Align text to the left */
+        text-align: left; /* Align text to the left */
         margin-bottom: 10px; /* Spacing between buttons */
         border: none; /* Remove default borders */
         outline: none; /* Remove focus outlines */
@@ -116,7 +123,7 @@ def setup_sidebar():
         st.session_state.page = "Connect"
 
     if st.sidebar.button("💻 Report"):
-        st.session_state.page = "Workspace"
+        st.session_state.page = "Report"
     
     if st.sidebar.button("🛠️ Settings"):
         st.session_state.page = "Settings"
@@ -126,10 +133,12 @@ def setup_sidebar():
     
     if st.session_state.page == "Connect":
         setup_header()
-    elif st.session_state.page == "Workspace":
-        connect_report()
+    elif st.session_state.page == "Report":
+        file_path=config.REPORT_PATH
+        connect_report(file_path)
     elif st.session_state.page == "Settings":
         settings()
+        display_processing_log()
     elif st.session_state.page == "Help":
         help()    
     st.sidebar.write("")
@@ -139,31 +148,122 @@ def setup_sidebar():
     st.sidebar.image(config.CAZE_PATH, use_container_width=True)
     
     
-def connect_report():
-    with open(config.ICON_PATH, "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read()).decode()
-        image_and_heading_html = f"""
-        <div style="display: flex; justify-content:center;background:white">
-            <img src="data:image/png;base64,{encoded_image}" style="width: 75px; height: 75px; object-fit: contain; position: relative; left: -37px;">
-            <h1 style="font-size: 2rem; margin: 0; z-index: 2; position: relative; left: -32px; top: -5px; color: #BE232F;">
-                    Caze <span style="color: #304654;">BizConAI</span>
-        </div>
-        """
-        st.markdown(image_and_heading_html, unsafe_allow_html=True)
-        files = get_files_in_folder(WORKSPACES_FOLDER)
-        if not files:
-            # Show message if folder is empty
-            st.sidebar.info("No chats available.")
-            st.info("No chats available.")
-        else:
-            selected_file = st.selectbox("Select a file", options=files, index=0)
+def connect_report(file_path):
+    """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
+    # Ensure the file exists
+    if not os.path.exists(file_path):
+        st.error(f"The file '{file_path}' does not exist. Ensure data has been saved correctly.")
+        return
 
-            if selected_file:
-                # Display the selected file's content
-                file_path = os.path.join(WORKSPACES_FOLDER, selected_file)
-                st.subheader(f"Contents of {selected_file}")
-                file_content = read_file_content(file_path)
-                st.text_area("File Content", file_content, height=400)
+    # Load the Excel file
+    data = pd.read_excel(file_path)
+
+    # Add default "Not Responded" value to the first column if not already set
+    if "Status (Hot/Warm/Cold/Not Responded)" in data.columns:
+        data["Status (Hot/Warm/Cold/Not Responded)"].fillna("Not Responded", inplace=True)
+    else:
+        st.error("The required column 'Status (Hot/Warm/Cold/Not Responded)' is missing in the file.")
+        return
+
+    # Initialize session state for selection if not already set
+    if "selected_users" not in st.session_state:
+        st.session_state.selected_users = {index: False for index in data.index}
+
+    # Display the data
+    st.markdown("### User Data with Status")
+    st.dataframe(data)
+
+    # Table headers for the display
+    st.markdown("#### Manage Users")
+    cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
+    cols[0].markdown("**Select**")
+    cols[1].markdown("**ID**")
+    cols[2].markdown("**Name**")
+    cols[3].markdown("**Company**")
+    cols[4].markdown("**Phone Number**")
+    cols[5].markdown("**Status**")
+
+    # Display rows with checkboxes
+    for index, row in data.iterrows():
+        cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
+
+        # Checkbox for each row
+        is_selected = st.session_state.selected_users[index]
+        st.session_state.selected_users[index] = cols[0].checkbox(
+            "",
+            value=is_selected,
+            key=f"user_select_{index}"
+        )
+
+        # Display row data
+        cols[1].markdown(str(row["ID"]))
+        cols[2].markdown(row["Name"])
+        cols[3].markdown(row["Company"])
+        cols[4].markdown(str(row["Phone Number"]))
+        cols[5].markdown(row["Status (Hot/Warm/Cold/Not Responded)"])
+
+    # Identify selected rows
+    selected_indices = [idx for idx, selected in st.session_state.selected_users.items() if selected]
+
+    # Buttons for actions
+    if selected_indices:
+        st.markdown("### Actions for Selected Rows")
+
+        # Button to delete selected rows
+        if st.button("Delete Selected Rows"):
+            updated_data = data.drop(selected_indices)
+
+            # Save the updated data back to the Excel file
+            with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
+                updated_data.to_excel(writer, index=False, sheet_name="Updated Data")
+
+            st.success(f"{len(selected_indices)} rows have been deleted.")
+            st.experimental_rerun()
+
+        # Button to download selected rows
+        selected_data = data.loc[selected_indices]
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+            selected_data.to_excel(writer, index=False, sheet_name="Selected Data")
+        output.seek(0)
+
+        st.download_button(
+            label="Download Selected Rows",
+            data=output,
+            file_name="selected_users.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    # Button to delete all rows
+    if st.button("Delete All Rows"):
+        with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
+            pd.DataFrame().to_excel(writer, index=False, sheet_name="Updated Data")
+
+        st.success("All rows have been deleted.")
+        st.experimental_rerun()
+
+    # Button to download all rows
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        data.to_excel(writer, index=False, sheet_name="All Data")
+    output.seek(0)
+
+    st.download_button(
+        label="Download All Rows",
+        data=output,
+        file_name="all_users.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+def update_selection_state(index):
+    """Update the selection state for the row."""
+    # Toggle the selection state for the specific row
+    st.session_state[f"user_select_{index}"] = not st.session_state[f"user_select_{index}"]
+    st.session_state.selected_users[index] = st.session_state[f"user_select_{index}"]
+
+
+
     
     
 def settings():
@@ -246,39 +346,65 @@ def process_company_urls(urls):
             result = process_and_store_content(content, st.session_state.company_collection, "url", url.strip())
             handle_processing_result(result, "Company", url.strip())
 
-def process_user_files(user_files):      #need more work to do
-    # st.info(f"Processing len{(user_files)} user file(s)...")
-    print(type(user_files))
-    # progress_bar = st.progress(0)
-    # total_files = len(user_files)
-    
-    if user_files:
-                try:
-                    # Process all uploaded files
-                    new_dfs = []
-                    if user_files:
-                        if user_files.name.endswith('.csv'):
-                            df = pd.read_csv(user_files)
-                        else:
-                            df = pd.read_excel(user_files)
-                        
-                        required_columns = ['ID', 'Name', 'Company', 'Phone Number', 'Age', 'Description']
-                        if all(col in df.columns for col in required_columns):
-                            new_dfs.append(df)
-                        else:
-                            st.error(f"File {user_files.name} must contain columns: ID, Name, Company, Phone Number, Age, Description")
-                            return
-                    
-                    if new_dfs:
-                        # Combine new dataframes
-                        new_data = pd.concat(new_dfs, ignore_index=True)
-                        
-                        update_master_file(new_data)
-                        
-                        st.success(f"Successfully processed files!")
-                        
-                except Exception as e:
-                    st.error(f"Error processing files: {str(e)}")
+
+def process_user_files(user_files):
+    """
+    Processes multiple uploaded files, displays file details (name, rows, time),
+    and persists this information across UI changes.
+    """
+    if not user_files:
+        st.error("No files uploaded!")
+        return
+
+    try:
+        new_dfs = []  # List to hold valid dataframes
+
+        for file in user_files:
+            try:
+                # Determine file type and read it into a dataframe
+                if file.name.endswith('.csv'):
+                    df = pd.read_csv(file)
+                elif file.name.endswith(('.xls', '.xlsx')):
+                    df = pd.read_excel(file)
+                else:
+                    st.error(f"Unsupported file format: {file.name}")
+                    continue  # Skip this file
+
+                # Ensure the file contains the required columns
+                required_columns = ['ID', 'Name', 'Company', 'Phone Number', 'Age', 'Description']
+                if all(col in df.columns for col in required_columns):
+                    new_dfs.append((file.name, df))  # Add the dataframe along with file name
+
+                    # Log the processing details
+                    processing_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    st.session_state["file_processing_log"].append({
+                        "File Name": file.name,
+                        "Rows": len(df),
+                        "Processed At": processing_time
+                    })
+                else:
+                    st.error(f"File {file.name} must contain columns: {', '.join(required_columns)}")
+            except Exception as file_error:
+                st.error(f"Error reading file {file.name}: {str(file_error)}")
+
+        # Process all valid dataframes
+        for file_name, df in new_dfs:
+            try:
+                update_master_file(df, file_name)  # Pass dataframe and source file name
+                st.success(f"Successfully processed and updated master file with {file_name}!")
+            except Exception as update_error:
+                st.error(f"Error updating master file with {file_name}: {str(update_error)}")
+
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}")
+        
+def display_processing_log():
+    if st.session_state["file_processing_log"]:
+        st.markdown("### Processed Files Log")
+        log_df = pd.DataFrame(st.session_state["file_processing_log"])
+        st.table(log_df)  # Display as a table
+    else:
+        st.info("No files processed yet.")
 
 
 def handle_processing_result(result, source_type, name):
@@ -290,12 +416,15 @@ def handle_processing_result(result, source_type, name):
         st.error(f"Failed to process {source_type.lower()} file: {name}")
 
 
-def update_master_file(new_data):
-    """Update the single master Excel file with new data"""
-    master_file = 'data/master_user_data.xlsx'
+def update_master_file(new_data, source_file):
+    """Update the single master Excel file with new data and add source column."""
+    master_file = config.MASTER_PATH
     os.makedirs('data', exist_ok=True)
     
     try:
+        # Add source column to the new data
+        new_data['source'] = source_file  # Add the filename as the source
+        
         # Read existing data if file exists
         if os.path.exists(master_file):
             existing_data = pd.read_excel(master_file)
@@ -304,7 +433,7 @@ def update_master_file(new_data):
         else:
             combined_df = new_data
         
-        # Remove duplicates based on ID, keeping the latest version (comment this line if IDs are unique across nultiple documents)
+        # Remove duplicates based on ID, keeping the latest version
         combined_df = combined_df.drop_duplicates(subset=['ID'], keep='last')
         
         # Sort by ID
@@ -320,24 +449,103 @@ def update_master_file(new_data):
     except Exception as e:
         st.error(f"Error updating master file: {str(e)}")
 
+
+def save_selected_users_to_excel(selected_data, file_path):
+    """Save selected user data to an Excel file, appending new selections if the file exists."""
+    selected_data["Connected"] = "Yes"  # Add 'Connected' column
+    selected_data.insert(0, "Status (Hot/Warm/Cold/Not Responded)", "")  # Empty column for status
+    selected_data["Chat Summary"] = ""  # Empty column for chat summary
+
+    # Check if the file exists
+    if os.path.exists(file_path):
+        # Load existing data
+        existing_data = pd.read_excel(file_path)
+
+        # Append new data
+        combined_data = pd.concat([existing_data, selected_data], ignore_index=True)
+
+        # Remove duplicates (if necessary, based on a column like "ID")
+        combined_data.drop_duplicates(subset=["ID"], inplace=True)
+    else:
+        combined_data = selected_data
+
+    # Save the combined data back to the file
+    with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
+        combined_data.to_excel(writer, index=False, sheet_name="Selected Users")
+
+    st.success(f"File successfully saved to: {file_path}")
+
 def show_user_data_modal():
-    """Show user data in a proper table format with persistent checkboxes"""
+    """Show user data in a proper table format with persistent checkboxes, separated by source."""
+
+    # Button to show data
     if st.button("Show Uploaded User Data"):
         # Keep the data visible after clicking the button
         st.session_state.show_user_data = True
 
-        
-        master_file=os.path.join(os.getcwd(),"data","master_user_data.xlsx")
-        df=pd.read_excel(master_file)
-        if df is not None:
-            st.session_state.user_data_df = df
-            user_df = st.session_state.user_data_df
+    # Ensure session_state for the file and selected users exists
+    if "user_data_df" not in st.session_state:
+        master_file = os.path.join(os.getcwd(), "data", "master_user_data.xlsx")
+        if os.path.exists(master_file):
+            st.session_state.user_data_df = pd.read_excel(master_file)
+        else:
+            st.error("No users found in the database. Upload user information in the upload section.")
+            return
 
-            st.markdown("Current User Data")
+    # Display data if the button was clicked
+    if st.session_state.get("show_user_data", False):
+        user_df = st.session_state.user_data_df
 
-            # Initialize checkbox state if not already set
-            if "selected_users" not in st.session_state:
-                st.session_state.selected_users = {index: False for index in user_df.index}
+        # Check if "source" column exists
+        if "source" not in user_df.columns:
+            st.error("The 'source' column is missing in the uploaded data.")
+            return
+
+        # Initialize checkbox state for all users if not already set
+        if "selected_users" not in st.session_state:
+            st.session_state.selected_users = {index: False for index in user_df.index}
+
+        # Initialize state for source toggles
+        if "source_toggles" not in st.session_state:
+            st.session_state.source_toggles = {}
+
+        st.markdown("## User Data Overview")
+
+        # Global "Select/Deselect All Users" toggle
+        global_select_all = st.checkbox("Select/Deselect All Users Globally")
+
+        # If global toggle is selected, update all users and sources
+        if global_select_all:
+            for index in user_df.index:
+                st.session_state.selected_users[index] = True
+            for source in user_df["source"].unique():
+                st.session_state.source_toggles[source] = True
+        else:
+            for index in user_df.index:
+                st.session_state.selected_users[index] = False
+            for source in user_df["source"].unique():
+                st.session_state.source_toggles[source] = False
+
+        # Group data by source
+        grouped_data = user_df.groupby("source")
+
+        for source, group in grouped_data:
+            st.markdown(f"### Users from Source: {source}")
+
+            # Source-specific toggle
+            if source not in st.session_state.source_toggles:
+                st.session_state.source_toggles[source] = False
+
+            source_toggle = st.checkbox(
+                f"Select/Deselect All Users from {source}",
+                value=st.session_state.source_toggles[source],
+                key=f"source_toggle_{source}",
+            )
+
+            # Update state for the specific source based on the toggle
+            for index in group.index:
+                st.session_state.selected_users[index] = source_toggle
+            st.session_state.source_toggles[source] = source_toggle
 
             # Table headers
             cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.1])
@@ -348,45 +556,43 @@ def show_user_data_modal():
             cols[4].markdown("**Phone Number**")
             cols[5].markdown("**Age**")
 
-            # Display each row with checkboxes
-            for index, row in user_df.iterrows():
+            # Display each row for the current source group with individual checkboxes
+            for index, row in group.iterrows():
+                # Create columns for the row
                 cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.1])
 
-                # Initialize checkbox state only once
-                if f"user_select_{index}" not in st.session_state:
-                    st.session_state[f"user_select_{index}"] = False
+                # Ensure that the current user's selection state exists in st.session_state
+                if index not in st.session_state.selected_users:
+                    st.session_state.selected_users[index] = False
 
-                # Checkbox for selection (no state modification after creation)
-                checked = cols[0].checkbox(
-                    "", key=f"user_select_{index}", value=st.session_state[f"user_select_{index}"]
+                is_selected = st.session_state.selected_users[index]
+                st.session_state.selected_users[index] = cols[0].checkbox(
+                    "",
+                    value=is_selected,
+                    key=f"user_select_{index}"
                 )
 
-                # Update selection state safely
-                st.session_state.selected_users[index] = checked
-
-                # Display user data
+                # Render other columns with user data
                 cols[1].markdown(str(row["ID"]))
                 cols[2].markdown(row["Name"])
                 cols[3].markdown(row["Company"])
                 cols[4].markdown(str(row["Phone Number"]))
                 cols[5].markdown(str(row["Age"]))
 
-            # Button to process selected users
-            if st.button("Send Message to Selected Users"):
-                selected_rows = [
-                    index for index, selected in st.session_state.selected_users.items() if selected
-                ]
+                # Collect all selected rows globally
+        selected_rows = [
+            index for index, selected in st.session_state.selected_users.items() if selected
+        ]
 
-                if selected_rows:
-                    selected_data = user_df.loc[selected_rows]
-                    st.success(f"Selected {len(selected_rows)} users.")
-                    st.dataframe(selected_data)
-                else:
-                    st.warning("No users selected.")
-        else:
-            st.error("No users found in the database.Upload user information in the upload section")
+        # Display the "Send Message" button for globally selected users
+        if selected_rows:
+            if st.button("Send Message to All Selected Users"):
+                selected_data = user_df.loc[selected_rows]
+                st.success(f"Selected {len(selected_rows)} users globally.")
 
-
+                # Save the Excel file to the specified path
+                file_path = config.REPORT_PATH
+                save_selected_users_to_excel(selected_data, file_path)
 
 
 

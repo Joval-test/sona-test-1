@@ -34,57 +34,87 @@ def initialize_session_state():
         st.session_state.phone_number_entered = False
     # if 'input_interface_visible' not in st.session_state:
     #     st.session_state.input_interface_visible = True
-    # if 'age_warning_confirmed' not in st.session_state:
-    #     st.session_state.age_warning_confirmed = False
+    if 'age_warning_confirmed' not in st.session_state:
+        st.session_state.age_warning_confirmed = False
 
 
     
+
+# def handle_conversation_start(button_container, company_collection, user_collection):
+#     company_has_docs = len(company_collection.get()['ids']) > 0
+#     user_has_docs = len(user_collection.get()['ids']) > 0
+#     user_data_uploaded = st.session_state.user_data_df is not None
+#     phone_provided = bool(st.session_state.phone_number)
+
+#     if not all([company_has_docs, user_data_uploaded, phone_provided]):
+#         missing = []
+#         if not company_has_docs:
+#             missing.append("company information")
+#         if not user_data_uploaded:
+#             missing.append("user data file")
+#         if not phone_provided:
+#             missing.append("phone number")
+#         st.error(f"Please provide {', '.join(missing)} before starting the conversation.")
+#         return False
+    
+#     if st.session_state.matched_user_data is not None:
+#         age = st.session_state.matched_user_data['Age']
+        
+#         # If age warning is already confirmed or not needed, start chat immediately
+#         if age >= 20 or st.session_state.age_warning_confirmed:
+#             initialize_chat(button_container)
+#             return True
+            
+#         # Show age warning if needed
+#         if age < 20 and not st.session_state.age_warning_confirmed:
+#             col1, col2, col3 = st.columns([1, 2, 1])
+#             with col2:
+#                 st.warning("⚠ Warning: User age is below 20. Would you like to proceed?")
+#                 if st.button("Yes, proceed anyway", key="proceed_button"):
+#                     st.session_state.age_warning_confirmed = True
+#                     initialize_chat(button_container)
+#                     return True
+#             return False
+#     else:
+#         col1, col2, col3 = st.columns([1, 2, 1])
+#         with col2:
+#             if st.button("Start conversation without user data", key="start_no_data"):
+#                 initialize_chat(button_container)
+#                 return True
+#         return False
+
+# def handle_chat_interface(llm, embeddings, company_collection, user_collection):
+    
+#     if not st.session_state.conversation_started:
+#         initial_context = query_collections("company information and user information", company_collection, user_collection, embeddings)
+#         if initial_context:
+#             system_message = create_system_message(initial_context)
+#             initial_messages = [system_message]
+#             st.session_state.conversation_started = True
+
+#             response = llm(initial_messages)
+#             st.session_state.messages = initial_messages + [AIMessage(content=response.content)]
+#             print(st.session_state.messages)
+#             st.session_state.conversation_started = True
+#         else:
+#             st.error("No context found. Please ensure company and user information has been properly processed.")
+#             st.session_state.show_chat = False
+    
+#     display_chat_history()
+#     handle_user_input(llm, embeddings, company_collection, user_collection)
 
 def handle_conversation_start(button_container, company_collection, user_collection):
     company_has_docs = len(company_collection.get()['ids']) > 0
     user_has_docs = len(user_collection.get()['ids']) > 0
-    user_data_uploaded = st.session_state.user_data_df is not None
-    phone_provided = bool(st.session_state.phone_number)
 
-    if not all([company_has_docs, user_data_uploaded, phone_provided]):
-        missing = []
-        if not company_has_docs:
-            missing.append("company information")
-        if not user_data_uploaded:
-            missing.append("user data file")
-        if not phone_provided:
-            missing.append("phone number")
-        st.error(f"Please provide {', '.join(missing)} before starting the conversation.")
-        return False
-    
-    if st.session_state.matched_user_data is not None:
-        age = st.session_state.matched_user_data['Age']
-        
-        # If age warning is already confirmed or not needed, start chat immediately
-        if age >= 20 or st.session_state.age_warning_confirmed:
-            initialize_chat(button_container)
-            return True
-            
-        # Show age warning if needed
-        if age < 20 and not st.session_state.age_warning_confirmed:
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.warning("⚠ Warning: User age is below 20. Would you like to proceed?")
-                if st.button("Yes, proceed anyway", key="proceed_button"):
-                    st.session_state.age_warning_confirmed = True
-                    initialize_chat(button_container)
-                    return True
-            return False
+    if company_has_docs and user_has_docs:
+        st.session_state.show_chat = True
+        st.session_state.hide_info_bar = True
+        button_container.empty()
     else:
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            if st.button("Start conversation without user data", key="start_no_data"):
-                initialize_chat(button_container)
-                return True
-        return False
+        st.error("Please upload and process at least one company file/URL and one user file/URL before starting the conversation.")
 
 def handle_chat_interface(llm, embeddings, company_collection, user_collection):
-    
     if not st.session_state.conversation_started:
         initial_context = query_collections("company information and user information", company_collection, user_collection, embeddings)
         if initial_context:
@@ -138,6 +168,8 @@ def handle_user_input(llm, embeddings, company_collection, user_collection):
                 create_workspace_file(df_name,df_phone,summary.content)
                 st.session_state.conversation_ended = True
                 st.rerun()
+
+
                 
                 
 def create_workspace_file(df_name,df_phone,info):
@@ -155,48 +187,66 @@ def create_workspace_file(df_name,df_phone,info):
     print(f"File created at: {file_path}")
                 
 def load_user_data():
-    data_path=os.path.join(os.getcwd(), "data","master_user_data.xlsx")
+    data_path=config.REPORT_PATH
     df = pd.read_excel(data_path)
     st.session_state.user_data_df = df
                
 def match_user_data(phone):
-    """Match phone number with user data and store in vector DB"""
+    """Match phone number with user data and store in vector DB."""
     if st.session_state.user_data_df is None:
         return None
-        
+
     df = st.session_state.user_data_df
     # Convert phone numbers to strings for comparison
     df['Phone Number'] = df['Phone Number'].astype(str)
     phone = str(phone)
-    
+
     matched_user = df[df['Phone Number'] == phone]
     if not matched_user.empty:
         user_data = matched_user.iloc[0]
-        if user_data['Age']:
-            st.error("Phone Number is not provided Please provide the phone numebr.")
-            st.session_state.matched_user_data = None
-            return False
         st.session_state.matched_user_data = {
+            'Status': user_data['Status'],
             'ID': user_data['ID'],
             'Name': user_data['Name'],
             'Company': user_data['Company'],
+            'Phone Number': user_data['Phone Number'],
             'Age': int(user_data['Age']),  # Ensure age is an integer
-            'Description': user_data['Description']
+            'Description': user_data['Description'],
+            'Source': user_data['Source'],
+            'Connected': user_data['Connected'],
+            'Chat Summary': user_data['Chat Summary']
         }
-        st.session_state.user_name=user_data['Name']
-        
-        # Create and store user document in vector DB
+        st.session_state.user_name = user_data['Name']
+
+        # Create a document for the matched user data
         user_doc = Document(
-            page_content=f"ID: {user_data['ID']}\nName: {user_data['Name']}\n"
-                        f"Company: {user_data['Company']}\nAge: {user_data['Age']}\n"
-                        f"Description: {user_data['Description']}",
+            page_content=(
+                f"Status: {user_data['Status']}\n"
+                f"ID: {user_data['ID']}\n"
+                f"Name: {user_data['Name']}\n"
+                f"Company: {user_data['Company']}\n"
+                f"Phone Number: {user_data['Phone Number']}\n"
+                f"Age: {user_data['Age']}\n"
+                f"Description: {user_data['Description']}\n"
+                f"Source: {user_data['Source']}\n"
+                f"Connected: {user_data['Connected']}\n"
+                f"Chat Summary: {user_data['Chat Summary']}"
+            ),
             metadata={"source_type": "user_data", "source_name": "user_list"}
         )
-        process_and_store_content([user_doc], st.session_state.user_collection, "user_data", "user_list")
+
+        # Process and store the content in the vector database
+        process_and_store_content(
+            [user_doc],
+            st.session_state.user_collection,
+            "user_data",
+            "user_list"
+        )
         return True
     else:
         st.session_state.matched_user_data = None
         return False
+
 
 def initialize_chat(button_container):
     st.session_state.conversation_started = True
@@ -248,7 +298,7 @@ def main():
         if st.session_state.show_chat:
             handle_chat_interface(llm, embeddings, company_collection, user_collection)
         else:
-            st.write("No matched USER FOUND")
+            st.error("ERROR: No matched user found.")
 
 if __name__ == "__main__":
     main()

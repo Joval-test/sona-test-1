@@ -10,7 +10,8 @@ AZURE_EMBEDDING_DEPLOYMENT = "embedding"
 PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_storage")
 os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
 
-CURRENT_DIRECTORY = os.getcwd()
-LOGO_PATH = os.path.join(CURRENT_DIRECTORY, "images", "logo_transparent.png")
-CAZE_PATH = os.path.join(CURRENT_DIRECTORY, "images", "caze_labs_logo.png")
-ICON_PATH = os.path.join(CURRENT_DIRECTORY, "images", "icon.png")
+LOGO_PATH = os.path.join(os.getcwd(), "images", "logo_transparent.png")
+CAZE_PATH = os.path.join(os.getcwd(), "images", "caze_labs_logo.png")
+ICON_PATH = os.path.join(os.getcwd(), "images", "icon.png")
+MASTER_PATH=os.path.join(os.getcwd(),"data","master_user_data.xlsx")
+REPORT_PATH=os.path.join(os.getcwd(),"data","selected_users.xlsx")
