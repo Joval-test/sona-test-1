@@ -8,7 +8,6 @@ from vector_store import process_and_store_content, clear_collections
 from clients import *
 import pandas as pd
 from config import *
-from workspace import *
 from streamlit_option_menu import option_menu
 from datetime import datetime
 from io import BytesIO
@@ -151,8 +150,13 @@ def setup_sidebar():
 def connect_report(file_path):
     """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
     # Ensure the file exists
-    if not os.path.exists(file_path):
-        st.error(f"The file '{file_path}' does not exist. Ensure data has been saved correctly.")
+    if os.path.exists(file_path):
+            st.session_state.user_data_df = pd.read_excel(file_path)
+            if st.session_state.user_data_df.empty:
+                st.error(" Upload user information in the Settings section.")
+                return
+    else:
+        st.error("No users found in the database. Upload user information in the Settings section.")
         return
 
     # Load the Excel file
@@ -165,42 +169,36 @@ def connect_report(file_path):
         st.error("The required column 'Status (Hot/Warm/Cold/Not Responded)' is missing in the file.")
         return
 
+    # Standardize status values to ensure consistent filtering
+    data["Status (Hot/Warm/Cold/Not Responded)"] = data["Status (Hot/Warm/Cold/Not Responded)"].str.strip().str.title()
+
     # Initialize session state for selection if not already set
     if "selected_users" not in st.session_state:
         st.session_state.selected_users = {index: False for index in data.index}
 
-    # Display the data
-    st.markdown("### User Data with Status")
-    st.dataframe(data)
+    # Display data grouped by status
+    statuses = ["Hot", "Warm", "Cold", "Not Responded"]
+    for status in statuses:
+        st.markdown(f"### {status} Leads")
+        status_data = data[data["Status (Hot/Warm/Cold/Not Responded)"] == status]
 
-    # Table headers for the display
-    st.markdown("#### Manage Users")
-    cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
-    cols[0].markdown("**Select**")
-    cols[1].markdown("**ID**")
-    cols[2].markdown("**Name**")
-    cols[3].markdown("**Company**")
-    cols[4].markdown("**Phone Number**")
-    cols[5].markdown("**Status**")
+        if not status_data.empty:
+            st.dataframe(status_data)
 
-    # Display rows with checkboxes
-    for index, row in data.iterrows():
-        cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
+            # Download button for each status group
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+                status_data.to_excel(writer, index=False, sheet_name=f"{status} Data")
+            output.seek(0)
 
-        # Checkbox for each row
-        is_selected = st.session_state.selected_users[index]
-        st.session_state.selected_users[index] = cols[0].checkbox(
-            "",
-            value=is_selected,
-            key=f"user_select_{index}"
-        )
-
-        # Display row data
-        cols[1].markdown(str(row["ID"]))
-        cols[2].markdown(row["Name"])
-        cols[3].markdown(row["Company"])
-        cols[4].markdown(str(row["Phone Number"]))
-        cols[5].markdown(row["Status (Hot/Warm/Cold/Not Responded)"])
+            st.download_button(
+                label=f"Download {status} Leads",
+                data=output,
+                file_name=f"{status.lower()}_leads.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        else:
+            st.info(f"No {status} leads available.")
 
     # Identify selected rows
     selected_indices = [idx for idx, selected in st.session_state.selected_users.items() if selected]
@@ -221,7 +219,7 @@ def connect_report(file_path):
             st.experimental_rerun()
 
         # Button to download selected rows
-        selected_data = data.loc[selected_indices]
+        selected_data = data.iloc[selected_indices]
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             selected_data.to_excel(writer, index=False, sheet_name="Selected Data")
@@ -240,7 +238,7 @@ def connect_report(file_path):
             pd.DataFrame().to_excel(writer, index=False, sheet_name="Updated Data")
 
         st.success("All rows have been deleted.")
-        st.experimental_rerun()
+        st.rerun()
 
     # Button to download all rows
     output = BytesIO()
@@ -254,6 +252,7 @@ def connect_report(file_path):
         file_name="all_users.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
 
 
 def update_selection_state(index):
@@ -368,7 +367,7 @@ def process_user_files(user_files):
                     df = pd.read_excel(file)
                 else:
                     st.error(f"Unsupported file format: {file.name}")
-                    continue  # Skip this file
+                    continue
 
                 # Ensure the file contains the required columns
                 required_columns = ['ID', 'Name', 'Company', 'Phone Number', 'Age', 'Description']
@@ -485,11 +484,14 @@ def show_user_data_modal():
 
     # Ensure session_state for the file and selected users exists
     if "user_data_df" not in st.session_state:
-        master_file = os.path.join(os.getcwd(), "data", "master_user_data.xlsx")
+        master_file = config.MASTER_PATH
         if os.path.exists(master_file):
             st.session_state.user_data_df = pd.read_excel(master_file)
+            if st.session_state.user_data_df.empty:
+                st.error(" Upload user information in the Settings section.")
+                return
         else:
-            st.error("No users found in the database. Upload user information in the upload section.")
+            st.error("No users found in the database. Upload user information in the Settings section.")
             return
 
     # Display data if the button was clicked
@@ -598,10 +600,7 @@ def show_user_data_modal():
 
 def main():
     langchain.debug = True
-    
     initialize_session_state()
-    # setup_header()
-    # llm = initialize_llm()
     embeddings = initialize_embeddings()
     company_collection, user_collection = initialize_collections(embeddings)
 

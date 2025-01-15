@@ -343,6 +343,12 @@ def main():
             handle_chat_interface(llm, embeddings, company_collection, user_collection)
         else:
             st.error("ERROR: No matched user found.")
+    # folder = config.PERSIST_DIRECTORY
+    # db = Chroma(persist_directory=folder)   
+    # collection_name = "user_info_store"
+    # db.delete_collection(collection_name=collection_name)  # Use keyword argument
+    # print(f"Collection '{collection_name}' has been deleted.")
 
+    
 if __name__ == "__main__":
     main()
