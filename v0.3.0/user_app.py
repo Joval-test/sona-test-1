@@ -105,20 +105,22 @@ def initialize_session_state():
 #     display_chat_history()
 #     handle_user_input(llm, embeddings, company_collection, user_collection)
 
-def handle_conversation_start(button_container, company_collection, user_collection):
+def handle_conversation_start(button_container, company_collection, user_info):
     company_has_docs = len(company_collection.get()['ids']) > 0
-    user_has_docs = len(user_collection.get()['ids']) > 0
-
-    if company_has_docs and user_has_docs:
-        st.session_state.show_chat = True
-        st.session_state.hide_info_bar = True
-        button_container.empty()
+    if user_info:
+        if company_has_docs:
+            st.session_state.show_chat = True
+            st.session_state.hide_info_bar = True
+            button_container.empty()
+        else:
+            st.error("Please upload and process at least one company file/URL")
     else:
-        st.error("Please upload and process at least one company file/URL and one user file/URL before starting the conversation.")
+        st.error("Please upload and process at least one user file/URL before starting the conversation.")
 
-def handle_chat_interface(llm, embeddings, company_collection, user_collection):
+def handle_chat_interface(llm, embeddings, company_collection, user_info):
     if not st.session_state.conversation_started:
-        initial_context = query_collections("company information and user information", company_collection, user_collection, embeddings)
+        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings)
+        print(initial_context)
         if initial_context:
             system_message = create_system_message(initial_context)
             initial_messages = [system_message]
@@ -132,7 +134,7 @@ def handle_chat_interface(llm, embeddings, company_collection, user_collection):
             st.session_state.show_chat = False
     
     display_chat_history()
-    handle_user_input(llm, embeddings, company_collection, user_collection)
+    handle_user_input(llm, embeddings, company_collection, user_info)
 
 def display_chat_history():
     for message in st.session_state.messages[1:]:
@@ -141,7 +143,7 @@ def display_chat_history():
         elif isinstance(message, HumanMessage):
             st.chat_message("user").write(message.content)
 
-def handle_user_input(llm, embeddings, company_collection, user_collection):
+def handle_user_input(llm, embeddings, company_collection, user_info):
     if st.session_state.conversation_ended:
         st.write("Conversation has ended. Please refresh the page to start a new conversation.")
     else:
@@ -151,7 +153,7 @@ def handle_user_input(llm, embeddings, company_collection, user_collection):
             st.session_state.messages.append(HumanMessage(content=user_input))
             st.chat_message("user").write(user_input)
             
-            context = query_collections(user_input, company_collection, user_collection, embeddings)
+            context = query_collections(user_input, company_collection, user_info, embeddings)
             st.session_state.messages[0] = create_system_message(context)
         
             response = llm(st.session_state.messages)
@@ -167,22 +169,21 @@ def handle_user_input(llm, embeddings, company_collection, user_collection):
                 prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words or more, provide everything including the contact details. "
                 prompt_status = f"Based on the following conversation {messages_content}, can you categorize the user's interest level as one of the following: 'Hot':very interested, 'Warm':partially interested, or 'Cold': not interested? Give just one word answer"
                 df = st.session_state.user_data_df
-                df_phone= str(st.session_state.phone_number)
-                prepare_summary(llm,prompt_summary,df,df_phone)
-                prepare_status(llm,prompt_status,df,df_phone)
+                df_userid= str(st.session_state.userid)
+                prepare_summary(llm,prompt_summary,df,df_userid)
+                prepare_status(llm,prompt_status,df,df_userid)
                 st.session_state.conversation_ended = True
                 st.rerun()
 
 
 
-def prepare_summary(llm,prompt,df,df_phone):
+def prepare_summary(llm,prompt,df,df_userid):
     summary=llm.invoke(prompt)
     print(summary.content)
     try:
-        df['Phone Number'] = df['Phone Number'].astype(str)
-        df_phone = str(df_phone)
+        df['ID'] = df['ID'].astype(str)
         
-        matched_row = df[df['Phone Number'] == df_phone]
+        matched_row = df[df['ID'] == df_userid]
             
         if not matched_row.empty:
             # Update the 'Chat Summary' column
@@ -201,14 +202,14 @@ def prepare_summary(llm,prompt,df,df_phone):
         print(f"An error occurred: {e}")
         return False
     
-def prepare_status(llm,prompt_summary,df,df_phone):
+def prepare_status(llm,prompt_summary,df,df_userid):
     status=llm.invoke(prompt_summary)
     print(status.content)
     try:
-        df['Phone Number'] = df['Phone Number'].astype(str)
-        df_phone = str(df_phone)
+        df['ID'] = df['ID'].astype(str)
+        # df_phone = str(df_phone)
         
-        matched_row = df[df['Phone Number'] == df_phone]
+        matched_row = df[df['ID'] == df_userid]
             
         if not matched_row.empty:
             # Update the 'Status' column
@@ -226,70 +227,143 @@ def prepare_status(llm,prompt_summary,df,df_phone):
     except Exception as e:
         print(f"An error occurred: {e}")
         return False
-    
                 
                 
 def load_user_data():
     data_path=config.REPORT_PATH
     df = pd.read_excel(data_path)
     st.session_state.user_data_df = df
-               
-def match_user_data(phone):
-    """Match phone number with user data and store in vector DB."""
+    
+    
+def match_user_data():
+    """Match custom URL with user data and store in vector DB."""
     if st.session_state.user_data_df is None:
         return None
-    print("This is the phone given for matching",phone)
     df = st.session_state.user_data_df
-    df['Phone Number'] = df['Phone Number'].astype(str)
-    phone = str(phone)
-
-    matched_user = df[df['Phone Number'] == phone]
-    print("Matched User:",matched_user)
-    if not matched_user.empty:
-        user_data = matched_user.iloc[0]
-        st.session_state.matched_user_data = {
-            'Status': user_data['Status (Hot/Warm/Cold/Not Responded)'],
-            'ID': user_data['ID'],
-            'Name': user_data['Name'],
-            'Company': user_data['Company'],
-            'Phone Number': user_data['Phone Number'],
-            'Age': int(user_data['Age']),  # Ensure age is an integer
-            'Description': user_data['Description'],
-            'Source': user_data['source'],
-            'Connected': user_data['Connected'],
-            'Chat Summary': user_data['Chat Summary']
-        }
-        st.session_state.user_name = user_data['Name']
-        print(user_data['Name'])
-
-        # Create a document for the matched user data
-        user_doc = Document(
-            page_content=(
-                f"Status: {user_data['Status (Hot/Warm/Cold/Not Responded)']}\n"
-                f"ID: {user_data['ID']}\n"
-                f"Name: {user_data['Name']}\n"
-                f"Company: {user_data['Company']}\n"
-                f"Phone Number: {user_data['Phone Number']}\n"
-                f"Age: {user_data['Age']}\n"
-                f"Description: {user_data['Description']}\n"
-                f"Source: {user_data['source']}\n"
-                f"Connected: {user_data['Connected']}\n"
-                f"Chat Summary: {user_data['Chat Summary']}"
-            ),
-            metadata={"source_type": "user_data", "source_name": "user_list"}
-        )
-
-        # Process and store the content in the vector database
-        process_and_store_content(
-            [user_doc],
-            st.session_state.user_collection,
-            "user_data",
-            "user_list"
-        )
-        return True
+    
+    if df.empty:
+        st.error("No message has been sent to any user")
     else:
-        st.session_state.matched_user_data = None
-        return False
+        if "user" in st.query_params: 
+            user_id =  st.query_params["user"]
+            print(f"This is the user_id {user_id}")
+            if user_id:
+                user_id = str(user_id)
+                st.session_state.userid=user_id
+                matched_user = df[df['ID'].astype(str) == user_id]
+                
+                if not matched_user.empty:
+                    user_data = matched_user.iloc[0]
+                    st.session_state.matched_user_data = {
+                        'Status': user_data['Status (Hot/Warm/Cold/Not Responded)'],
+                        'ID': user_data['ID'],
+                        'Name': user_data['Name'],
+                        'Company': user_data['Company'],
+                        'Phone Number': user_data['Phone Number'],
+                        'Age': int(user_data['Age']),
+                        'Description': user_data['Description'],
+                        'Source': user_data['source'],
+                        'Connected': user_data['Connected'],
+                        'Chat Summary': user_data['Chat Summary']
+                    }
+                    st.session_state.user_name = user_data['Name']
+
+                    # Create a document for the matched user data
+                    user_doc = Document(
+                        page_content=(
+                            f"Status: {user_data['Status (Hot/Warm/Cold/Not Responded)']}\n"
+                            f"ID: {user_data['ID']}\n"
+                            f"Name: {user_data['Name']}\n"
+                            f"Company: {user_data['Company']}\n"
+                            f"Phone Number: {user_data['Phone Number']}\n"
+                            f"Age: {user_data['Age']}\n"
+                            f"Description: {user_data['Description']}\n"
+                            f"Source: {user_data['source']}\n"
+                            f"Connected: {user_data['Connected']}\n"
+                            f"Chat Summary: {user_data['Chat Summary']}"                 
+                        ),
+                        metadata={"source_type": "user_data", "source_name": "user_list"}
+                    )
+                    
+                    return user_doc.page_content
+        else:
+            st.session_state.matched_user_data = None
+            return False
+    
+    
+               
+# def match_user_data(phone):
+#     """Match phone number with user data and store in vector DB."""
+#     if st.session_state.user_data_df is None:
+#         return None
+#     print("This is the phone given for matching",phone)
+#     df = st.session_state.user_data_df
+#     if df.empty:
+#         st.error("No message has been send to any user")
+#     else:
+#         df['Phone Number'] = df['Phone Number'].astype(str)
+#         phone = str(phone)
+
+#         matched_user = df[df['Phone Number'] == phone]
+#         # print("Matched User:",matched_user)
+#         if not matched_user.empty:
+#             user_data = matched_user.iloc[0]
+#             st.session_state.matched_user_data = {
+#                 'Status': user_data['Status (Hot/Warm/Cold/Not Responded)'],
+#                 'ID': user_data['ID'],
+#                 'Name': user_data['Name'],
+#                 'Company': user_data['Company'],
+#                 'Phone Number': user_data['Phone Number'],
+#                 'Age': int(user_data['Age']),  # Ensure age is an integer
+#                 'Description': user_data['Description'],
+#                 'Source': user_data['source'],
+#                 'Connected': user_data['Connected'],
+#                 'Chat Summary': user_data['Chat Summary']
+#             }
+#             st.session_state.user_name = user_data['Name']
+#             # print(user_data['Name'])
+
+#             # Create a document for the matched user data
+#             user_doc = Document(
+#                 page_content=(
+#                     f"Status: {user_data['Status (Hot/Warm/Cold/Not Responded)']}\n"
+#                     f"ID: {user_data['ID']}\n"
+#                     f"Name: {user_data['Name']}\n"
+#                     f"Company: {user_data['Company']}\n"
+#                     f"Phone Number: {user_data['Phone Number']}\n"
+#                     f"Age: {user_data['Age']}\n"
+#                     f"Description: {user_data['Description']}\n"
+#                     f"Source: {user_data['source']}\n"
+#                     f"Connected: {user_data['Connected']}\n"
+#                     f"Chat Summary: {user_data['Chat Summary']}"
+#                 ),
+#                 metadata={"source_type": "user_data", "source_name": "user_list"}
+#             )
+#             # description = extract_fields(user_doc)
+            
+#             # Process and store the content in the vector database
+#             return user_doc.page_content
+#         else:
+#             st.session_state.matched_user_data = None
+#             return False
+
+def extract_fields(document):
+    lines = document.page_content.split("\n")
+    description = None
+    # chat_summary = None
+
+    for line in lines:
+        if line.startswith("Description:"):
+            description = line.replace("Description: ", "").strip()
+        if line.startswith("Name"):
+            name=line.replace("Name","").strip
+        # if line
+            
+    print (description)
+        # elif line.startswith("Chat Summary:"):
+        #     chat_summary = line.replace("Chat Summary: ", "").strip()
+
+    return description
 
 
 def initialize_chat(button_container):
@@ -303,13 +377,13 @@ def initialize_chat(button_container):
 def main():
     llm = initialize_llm()
     embeddings = initialize_embeddings()
-    company_collection, user_collection = initialize_collections(embeddings)
+    company_collection = initialize_collections(embeddings)
     
     initialize_session_state()
     load_user_data()
     
     st.session_state.company_collection = company_collection
-    st.session_state.user_collection = user_collection
+    # st.session_state.user_collection = user_collection
     
     with open(config.ICON_PATH, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()
@@ -326,23 +400,27 @@ def main():
     """
     st.markdown(image_and_heading_html, unsafe_allow_html=True)
  
-    phone_number = st.text_input("Enter your phone number", value=st.session_state.phone_number)
+    # phone_number = st.text_input("Enter your phone number", value=st.session_state.phone_number)
     
-    st.session_state.phone_number = phone_number
-    st.session_state.phone_number_entered = True
+    st.session_state.userid = None
+    # st.session_state.phone_number_entered = True
     
-    print(phone_number)
+    # print(phone_number)
 
     button_container = st.empty()
-    match_user_data(phone_number)
+    user_content=match_user_data()
 
-    if phone_number:
-        handle_conversation_start(button_container, company_collection, user_collection)
+    if user_content:
+        handle_conversation_start(button_container, company_collection, user_content)
 
         if st.session_state.show_chat:
-            handle_chat_interface(llm, embeddings, company_collection, user_collection)
+            handle_chat_interface(llm, embeddings, company_collection, user_content)
         else:
             st.error("ERROR: No matched user found.")
+            
+            
+    if st.session_state.matched_user_data == None:
+        st.warning("You do not have access to this chat please contact the admin for access.")
     # folder = config.PERSIST_DIRECTORY
     # db = Chroma(persist_directory=folder)   
     # collection_name = "user_info_store"

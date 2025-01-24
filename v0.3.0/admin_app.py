@@ -3,7 +3,7 @@ import langchain
 import base64
 import tempfile
 import config
-from data_processor import extract_text_from_pdf, extract_text_from_url
+from data_processor import *
 from vector_store import process_and_store_content, clear_collections
 from clients import *
 import pandas as pd
@@ -39,8 +39,8 @@ def initialize_session_state():
         st.session_state["file_processing_log"] = []
     
     
-    # if 'user_data_df' not in st.session_state:
-    #     st.session_state.user_data_df = None
+    if 'send_user_data_df' not in st.session_state:
+        st.session_state.send_user_data_df = None
     if 'input_phone_number' not in st.session_state:
         st.session_state.input_phone_number = ""
     if 'matched_user_data' not in st.session_state:
@@ -151,8 +151,8 @@ def connect_report(file_path):
     """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
     # Ensure the file exists
     if os.path.exists(file_path):
-            st.session_state.user_data_df = pd.read_excel(file_path)
-            if st.session_state.user_data_df.empty:
+            st.session_state.send_user_data_df = pd.read_excel(file_path)
+            if st.session_state.send_user_data_df.empty:
                 st.error(" Upload user information in the Settings section.")
                 return
     else:
@@ -216,7 +216,7 @@ def connect_report(file_path):
                 updated_data.to_excel(writer, index=False, sheet_name="Updated Data")
 
             st.success(f"{len(selected_indices)} rows have been deleted.")
-            st.experimental_rerun()
+            st.rerun()
 
         # Button to download selected rows
         selected_data = data.iloc[selected_indices]
@@ -234,10 +234,16 @@ def connect_report(file_path):
 
     # Button to delete all rows
     if st.button("Delete All Rows"):
+        df=pd.read_excel(file_path)
+        headers = df.columns.tolist()
         with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
             pd.DataFrame().to_excel(writer, index=False, sheet_name="Updated Data")
 
-        st.success("All rows have been deleted.")
+        with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
+            empty_df = pd.DataFrame(columns=headers)
+            empty_df.to_excel(writer, index=False, sheet_name="Updated Data")
+
+        st.success("All rows have been deleted")
         st.rerun()
 
     # Button to download all rows
@@ -277,9 +283,14 @@ def settings():
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
     setup_company_section()
+    if not len(st.session_state.company_collection.get()['ids']) > 0:
+        st.warning("Company information not available")
+    else:
+        display_file_details(st.session_state.company_collection)
+    
     setup_user_section()
     if st.button("Clear All Data"):
-        if clear_collections(st.session_state.company_collection, st.session_state.user_collection):
+        if clear_collections(st.session_state.company_collection):
             st.rerun()
         # if st.session_state.company_files_processed > 1 and st.session_state.user_files_processed > 1:
         #     send_chroma_to_flask(PERSIST_DIRECTORY)
@@ -328,7 +339,7 @@ def process_company_files(files):
             
             content = extract_text_from_pdf(temp_file_path)
             result = process_and_store_content(content, st.session_state.company_collection, "pdf", file.name)
-            
+            print(f"Process result {result}")
             handle_processing_result(result, "Company", file.name)
             if result in ["file_exists", "success"]:
                 st.session_state.company_files_processed += 1
@@ -378,7 +389,7 @@ def process_user_files(user_files):
                     processing_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     st.session_state["file_processing_log"].append({
                         "File Name": file.name,
-                        "Rows": len(df),
+                        "Leads": len(df),
                         "Processed At": processing_time
                     })
                 else:
@@ -449,11 +460,17 @@ def update_master_file(new_data, source_file):
         st.error(f"Error updating master file: {str(e)}")
 
 
+def generate_custom_user_url(user_id):
+    """Generate a custom URL for each user."""
+    base_link=config.BASE_LINK
+    return f"{base_link}?user={user_id}"
+
 def save_selected_users_to_excel(selected_data, file_path):
     """Save selected user data to an Excel file, appending new selections if the file exists."""
     selected_data["Connected"] = "Yes"  # Add 'Connected' column
     selected_data.insert(0, "Status (Hot/Warm/Cold/Not Responded)", "")  # Empty column for status
     selected_data["Chat Summary"] = ""  # Empty column for chat summary
+    selected_data["Custom URL"] = selected_data["ID"].apply(generate_custom_user_url)
 
     # Check if the file exists
     if os.path.exists(file_path):
@@ -479,44 +496,39 @@ def show_user_data_modal():
 
     # Button to show data
     if st.button("Show Uploaded User Data"):
-        # Keep the data visible after clicking the button
         st.session_state.show_user_data = True
 
-    # Ensure session_state for the file and selected users exists
     if "user_data_df" not in st.session_state:
         master_file = config.MASTER_PATH
         if os.path.exists(master_file):
             st.session_state.user_data_df = pd.read_excel(master_file)
             if st.session_state.user_data_df.empty:
-                st.error(" Upload user information in the Settings section.")
+                st.error("Upload user information in the Settings section.")
                 return
         else:
             st.error("No users found in the database. Upload user information in the Settings section.")
             return
 
-    # Display data if the button was clicked
+    if "selected_users" not in st.session_state:
+        st.session_state.selected_users = {index: False for index in st.session_state.user_data_df.index}
+
+    if "source_toggles" not in st.session_state:
+        st.session_state.source_toggles = {}
+
+    if "show_user_data" not in st.session_state:
+        st.session_state.show_user_data = False
+
     if st.session_state.get("show_user_data", False):
         user_df = st.session_state.user_data_df
 
-        # Check if "source" column exists
         if "source" not in user_df.columns:
             st.error("The 'source' column is missing in the uploaded data.")
             return
 
-        # Initialize checkbox state for all users if not already set
-        if "selected_users" not in st.session_state:
-            st.session_state.selected_users = {index: False for index in user_df.index}
-
-        # Initialize state for source toggles
-        if "source_toggles" not in st.session_state:
-            st.session_state.source_toggles = {}
-
         st.markdown("## User Data Overview")
 
-        # Global "Select/Deselect All Users" toggle
         global_select_all = st.checkbox("Select/Deselect All Users Globally")
 
-        # If global toggle is selected, update all users and sources
         if global_select_all:
             for index in user_df.index:
                 st.session_state.selected_users[index] = True
@@ -528,13 +540,10 @@ def show_user_data_modal():
             for source in user_df["source"].unique():
                 st.session_state.source_toggles[source] = False
 
-        # Group data by source
         grouped_data = user_df.groupby("source")
 
         for source, group in grouped_data:
             st.markdown(f"### Users from Source: {source}")
-
-            # Source-specific toggle
             if source not in st.session_state.source_toggles:
                 st.session_state.source_toggles[source] = False
 
@@ -543,8 +552,6 @@ def show_user_data_modal():
                 value=st.session_state.source_toggles[source],
                 key=f"source_toggle_{source}",
             )
-
-            # Update state for the specific source based on the toggle
             for index in group.index:
                 st.session_state.selected_users[index] = source_toggle
             st.session_state.source_toggles[source] = source_toggle
@@ -581,20 +588,27 @@ def show_user_data_modal():
                 cols[4].markdown(str(row["Phone Number"]))
                 cols[5].markdown(str(row["Age"]))
 
-                # Collect all selected rows globally
+        # Collect all selected rows globally
         selected_rows = [
             index for index, selected in st.session_state.selected_users.items() if selected
         ]
 
+        # Ensure the selected rows are valid indices in the DataFrame
+        valid_selected_rows = [index for index in selected_rows if index in user_df.index]
+
         # Display the "Send Message" button for globally selected users
-        if selected_rows:
+        if valid_selected_rows:
             if st.button("Send Message to All Selected Users"):
-                selected_data = user_df.loc[selected_rows]
-                st.success(f"Selected {len(selected_rows)} users globally.")
+                selected_data = user_df.loc[valid_selected_rows]
+                st.success(f"Selected {len(valid_selected_rows)} users globally.")
 
                 # Save the Excel file to the specified path
                 file_path = config.REPORT_PATH
                 save_selected_users_to_excel(selected_data, file_path)
+        else:
+            st.error("No valid users selected.")
+
+
 
 
 
@@ -602,10 +616,10 @@ def main():
     langchain.debug = True
     initialize_session_state()
     embeddings = initialize_embeddings()
-    company_collection, user_collection = initialize_collections(embeddings)
+    company_collection = initialize_collections(embeddings)
 
     st.session_state.company_collection = company_collection
-    st.session_state.user_collection = user_collection
+    # st.session_state.user_collection = user_collection
     
     setup_sidebar()
 

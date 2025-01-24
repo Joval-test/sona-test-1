@@ -30,11 +30,11 @@ def initialize_collections(embeddings):
         collection_metadata={"hnsw:space": "cosine"}
     )
     
-    user_collection = Chroma(
-        collection_name="user_info_store",
-        persist_directory=config.PERSIST_DIRECTORY,
-        embedding_function=embeddings,
-        collection_metadata={"hnsw:space": "cosine"}
-    )
+    # user_collection = Chroma(
+    #     collection_name="user_info_store",
+    #     persist_directory=config.PERSIST_DIRECTORY,
+    #     embedding_function=embeddings,
+    #     collection_metadata={"hnsw:space": "cosine"}
+    # )
     
-    return company_collection, user_collection
+    return company_collection

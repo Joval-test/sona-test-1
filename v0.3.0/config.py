@@ -15,3 +15,4 @@ CAZE_PATH = os.path.join(os.getcwd(), "images", "caze_labs_logo.png")
 ICON_PATH = os.path.join(os.getcwd(), "images", "icon.png")
 MASTER_PATH=os.path.join(os.getcwd(),"data","master_user_data.xlsx")
 REPORT_PATH=os.path.join(os.getcwd(),"data","selected_users.xlsx")
+BASE_LINK="3.110.55.125:8502"
