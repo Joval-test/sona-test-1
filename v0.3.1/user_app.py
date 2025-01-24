@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains.combine_documents import create_stuff_documents_chain
 import pandas as pd
 import base64
+import json
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -372,61 +373,88 @@ def initialize_chat(button_container):
     st.session_state.phone_number_entered = True
     st.session_state.input_interface_visible = False
     button_container.empty()
+    
+    
+def get_llm_function():
+    config_file_path = "config.json"
+    
+    # Load the selected LLM from the JSON config
+    with open(config_file_path, "r") as file:
+        config = json.load(file)
+    
+    selected_llm = config["llm"]
+    
+    # Map LLM names to their initialization functions
+    llm_functions = {
+        "Azure OpenAI": initialize_llm_azure,
+        "Llama 3.1": initialize_llm_llama,
+        "Mistral": initialize_llm_mistral,
+    }
 
+    # Return the corresponding function or raise an error
+    if selected_llm in llm_functions:
+        return llm_functions[selected_llm]
+    else:
+        raise ValueError(f"Invalid LLM selected in config: {selected_llm}")
 
 def main():
-    llm = initialize_llm()
-    embeddings = initialize_embeddings()
-    company_collection = initialize_collections(embeddings)
+    try:
+        # Get the LLM initialization function
+        llm_function = get_llm_function()
+        print(llm_function)
+        
+        # Call the function to initialize the selected LLM
+        llm = llm_function()
+        
     
-    initialize_session_state()
-    load_user_data()
-    
-    st.session_state.company_collection = company_collection
-    # st.session_state.user_collection = user_collection
-    
-    with open(config.ICON_PATH, "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read()).decode()
+        embeddings = initialize_embeddings()
+        company_collection = initialize_collections(embeddings)
+        
+        initialize_session_state()
+        load_user_data()
+        
+        st.session_state.company_collection = company_collection
+        # st.session_state.user_collection = user_collection
+        
+        with open(config.ICON_PATH, "rb") as image_file:
+            encoded_image = base64.b64encode(image_file.read()).decode()
 
-    st.write("")
-    st.write("")
-    st.write("")
-    image_and_heading_html = f"""
-    <div style="display: flex; justify-content:center;background:white">
-        <img src="data:image/png;base64,{encoded_image}" style="width: 75px; height: 75px; object-fit: contain; position: relative; left: -37px;">
-        <h1 style="font-size: 2rem; margin: 0; z-index: 2; position: relative; left: -32px; top: -5px; color: #BE232F;">
-                Caze <span style="color: #304654;">BizConAI</span>
-    </div>
-    """
-    st.markdown(image_and_heading_html, unsafe_allow_html=True)
- 
-    # phone_number = st.text_input("Enter your phone number", value=st.session_state.phone_number)
+        st.write("")
+        st.write("")
+        st.write("")
+        image_and_heading_html = f"""
+        <div style="display: flex; justify-content:center;background:white">
+            <img src="data:image/png;base64,{encoded_image}" style="width: 75px; height: 75px; object-fit: contain; position: relative; left: -37px;">
+            <h1 style="font-size: 2rem; margin: 0; z-index: 2; position: relative; left: -32px; top: -5px; color: #BE232F;">
+                    Caze <span style="color: #304654;">BizConAI</span>
+        </div>
+        """
+        st.markdown(image_and_heading_html, unsafe_allow_html=True)
     
-    st.session_state.userid = None
-    # st.session_state.phone_number_entered = True
-    
-    # print(phone_number)
+        # phone_number = st.text_input("Enter your phone number", value=st.session_state.phone_number)
+        
+        st.session_state.userid = None
+        # st.session_state.phone_number_entered = True
+        
+        # print(phone_number)
 
-    button_container = st.empty()
-    user_content=match_user_data()
+        button_container = st.empty()
+        user_content=match_user_data()
 
-    if user_content:
-        handle_conversation_start(button_container, company_collection, user_content)
+        if user_content:
+            handle_conversation_start(button_container, company_collection, user_content)
 
-        if st.session_state.show_chat:
-            handle_chat_interface(llm, embeddings, company_collection, user_content)
-        else:
-            st.error("ERROR: No matched user found.")
-            
-            
-    if st.session_state.matched_user_data == None:
-        st.warning("You do not have access to this chat please contact the admin for access.")
-    # folder = config.PERSIST_DIRECTORY
-    # db = Chroma(persist_directory=folder)   
-    # collection_name = "user_info_store"
-    # db.delete_collection(collection_name=collection_name)  # Use keyword argument
-    # print(f"Collection '{collection_name}' has been deleted.")
+            if st.session_state.show_chat:
+                handle_chat_interface(llm, embeddings, company_collection, user_content)
+            else:
+                st.error("ERROR: No matched user found.")
+                
+                
+        if st.session_state.matched_user_data == None:
+            st.warning("You do not have access to this chat please contact the admin for access.")
+        
+    except ValueError as e:
+        st.error(str(e))
 
-    
 if __name__ == "__main__":
     main()

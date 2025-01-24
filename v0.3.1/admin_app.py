@@ -11,6 +11,7 @@ from config import *
 from streamlit_option_menu import option_menu
 from datetime import datetime
 from io import BytesIO
+import json
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -282,6 +283,15 @@ def settings():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
+        model_options = ["Azure OpenAI", "Llama 3.1", "Mistral"]
+        selected_model = st.selectbox("Select LLM Model:", model_options)
+        
+        if st.button("Save Configuration"):
+            st.success(f"LLM updated to {selected_model} successfully!")
+            print(f"Before update: {config.llm}")
+            update_llm_in_config(selected_model)
+            print(f"After update: {config.llm}")
+        
     setup_company_section()
     if not len(st.session_state.company_collection.get()['ids']) > 0:
         st.warning("Company information not available")
@@ -308,7 +318,18 @@ def help():
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
         st.write("THIS IS THE HELP SECTION")
     
-    
+def update_llm_in_config(selected_model):
+    config_file_path = "config.json"
+    with open(config_file_path, "r") as file:
+        config = json.load(file)
+
+    config["llm"] = selected_model
+
+    with open(config_file_path, "w") as file:
+        json.dump(config, file, indent=4)
+
+    print(f"Updated LLM in config.json: {selected_model}")
+
 
 def setup_header():
     if not st.session_state.hide_info_bar:

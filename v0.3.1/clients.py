@@ -1,13 +1,34 @@
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 import config
 
-def initialize_llm():
+def initialize_llm_azure():
     return AzureChatOpenAI(
         azure_endpoint=config.AZURE_ENDPOINT,
         azure_deployment=config.AZURE_DEPLOYMENT,
         api_version=config.AZURE_API_VERSION,
         api_key=config.AZURE_API_KEY,
+        temperature=0.1,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2
+    )
+    
+def initialize_llm_llama():
+    return ChatOllama(
+        model="llama3.1",
+        base_url="3.110.55.125:11434",
+        temperature=0.1,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2
+    )
+
+def initialize_llm_mistral():
+    return ChatOllama(
+        model="mistral",
+        base_url="3.110.55.125:11434",
         temperature=0.1,
         max_tokens=None,
         timeout=None,
