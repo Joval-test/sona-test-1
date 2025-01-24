@@ -1,4 +1,4 @@
-from langchain_openai import ChatOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
 import config
 
