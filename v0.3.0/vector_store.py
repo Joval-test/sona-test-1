@@ -27,7 +27,8 @@ def process_and_store_content(content, collection, source_type, source_name):
                     )
                     chunk_ids.append(f"{content_hash}_chunk_{chunk.metadata.get('page_number', 1)}")
                     chunk_documents.append(doc)
-
+                    
+                    
                 collection.add_documents(
                     documents=chunk_documents,
                     ids=chunk_ids
@@ -41,14 +42,14 @@ def process_and_store_content(content, collection, source_type, source_name):
     except Exception as e:
         print(f"Error adding documents: {e}")
 
-def query_collections(query_text, company_collection, user_collection, embeddings, n_results=3):
+def query_collections(query_text, company_collection, user_info, embeddings, n_results=3):
     try:
         company_results = company_collection.similarity_search_by_vector(
             embedding=embeddings.embed_query(query_text), k=1
         )
-        user_results = user_collection.similarity_search_by_vector(
-            embedding=embeddings.embed_query(query_text), k=1
-        )
+        # user_results = user_collection.similarity_search_by_vector(
+        #     embedding=embeddings.embed_query(query_text), k=1
+        # )
         
         context = {
             "COMPANY INFO": [],
@@ -60,31 +61,33 @@ def query_collections(query_text, company_collection, user_collection, embedding
                 if hasattr(result, "page_content"):
                     context["COMPANY INFO"].append(result.page_content)
 
-        if user_results and len(user_results) > 0:
-            for result in user_results:
-                if hasattr(result, "page_content"):
-                    context["USER INFO"].append(result.page_content)
+        # if user_results and len(user_results) > 0:
+        #     for result in user_results:
+        #         if hasattr(result, "page_content"):
+        #             context["USER INFO"].append(result.page_content)
         
+        # if user_info:
+        #     print(user_info)
         formatted_context = ""
         if context["COMPANY INFO"]:
             formatted_context += "<< COMPANY INFO >>\n" + "\n".join(context["COMPANY INFO"]) + "\n\n"
-        if context["USER INFO"]:
-            formatted_context += "<< USER INFO >>\n" + "\n".join(context["USER INFO"])
+        if user_info:
+            formatted_context += "<< USER INFO >>\n" + "\n".join(user_info)
         
         return formatted_context
     except Exception as e:
         st.error(f"Error querying collections: {str(e)}")
         return ""
 
-def clear_collections(company_collection, user_collection):
+def clear_collections(company_collection): #add User collection incase we're using vector store
     try:
         company_ids = company_collection.get()['ids']
-        user_ids = user_collection.get()['ids']
+        # user_ids = user_collection.get()['ids']
         
         if company_ids:
             company_collection.delete(ids=company_ids)
-        if user_ids:
-            user_collection.delete(ids=user_ids)
+        # if user_ids:
+        #     user_collection.delete(ids=user_ids)
             
         return True
     except Exception as e:
