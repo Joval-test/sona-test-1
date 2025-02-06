@@ -120,15 +120,17 @@ def handle_conversation_start(button_container, company_collection, user_info):
 
 def handle_chat_interface(llm, embeddings, company_collection, user_info):
     if not st.session_state.conversation_started:
-        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings)
-        print(initial_context)
+        # print("This is user info in handle chat: ",user_info)
+        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings,llm)
+        # print("This is the initial context of the llm to work with",initial_context)
         if initial_context:
             system_message = create_system_message(initial_context)
             initial_messages = [system_message]
             st.session_state.conversation_started = True
 
-            response = llm(initial_messages)
-            st.session_state.messages = initial_messages + [AIMessage(content=response.content)]
+            response = llm.invoke(initial_messages)
+            clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+            st.session_state.messages = initial_messages + [AIMessage(content=clean_response)]
             st.session_state.conversation_started = True
         else:
             st.error("No context found. Please ensure company and user information has been properly processed.")
@@ -140,7 +142,8 @@ def handle_chat_interface(llm, embeddings, company_collection, user_info):
 def display_chat_history():
     for message in st.session_state.messages[1:]:
         if isinstance(message, AIMessage):
-            st.chat_message("assistant", avatar=config.ICON_PATH).write(message.content)
+            clean_response=re.sub(r'<think>.*?</think>', '', message.content, flags=re.DOTALL)
+            st.chat_message("assistant", avatar=config.ICON_PATH).write(clean_response)
         elif isinstance(message, HumanMessage):
             st.chat_message("user").write(message.content)
 
@@ -154,12 +157,13 @@ def handle_user_input(llm, embeddings, company_collection, user_info):
             st.session_state.messages.append(HumanMessage(content=user_input))
             st.chat_message("user").write(user_input)
             
-            context = query_collections(user_input, company_collection, user_info, embeddings)
+            context = query_collections(user_input, company_collection, user_info, embeddings,llm)
             st.session_state.messages[0] = create_system_message(context)
         
-            response = llm(st.session_state.messages)
-            st.session_state.messages.append(AIMessage(content=response.content))
-            st.chat_message("assistant", avatar=config.ICON_PATH).write(response.content)
+            response = llm.invoke(st.session_state.messages)
+            clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+            st.session_state.messages.append(AIMessage(content=clean_response))
+            st.chat_message("assistant", avatar=config.ICON_PATH).write(clean_response)
             
             if "have a great day" in response.content.lower():
                 conversation=st.session_state.messages
@@ -167,7 +171,7 @@ def handle_user_input(llm, embeddings, company_collection, user_info):
                     for message in conversation 
                     if not isinstance(message, SystemMessage)]
                 print("\n".join(messages_content))
-                prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words or more, provide everything including the contact details. "
+                prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words, provide everything including the contact details. "
                 prompt_status = f"Based on the following conversation {messages_content}, can you categorize the user's interest level as one of the following: 'Hot':very interested, 'Warm':partially interested, or 'Cold': not interested? Give just one word answer"
                 df = st.session_state.user_data_df
                 df_userid= str(st.session_state.userid)
@@ -203,26 +207,64 @@ def prepare_summary(llm,prompt,df,df_userid):
         print(f"An error occurred: {e}")
         return False
     
-def prepare_status(llm,prompt_summary,df,df_userid):
-    status=llm.invoke(prompt_summary)
+# def prepare_status(llm,prompt_summary,df,df_userid):
+#     status=llm.invoke(prompt_summary)
+#     print(status.content)
+#     try:
+#         df['ID'] = df['ID'].astype(str)
+#         # df_phone = str(df_phone)
+        
+#         matched_row = df[df['ID'] == df_userid]
+            
+#         if not matched_row.empty:
+#             # Update the 'Status' column
+#             index = matched_row.index[0]
+#             if pd.notna(df.at[index, 'Chat Summary']):
+#                 df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = f" {status.content}"
+#             else:
+#                 df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = status.content
+#             save_path=config.REPORT_PATH    
+#             df.to_excel(save_path, index=False)
+#             name=st.session_state.user_name
+#             print(f"Chat summary updated successfully for Member: {name}")
+#             return True
+
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
+#         return False
+
+
+def prepare_status(llm, prompt_summary, df, df_userid):
+    status = llm.invoke(prompt_summary)
     print(status.content)
     try:
+        # Ensure 'ID' is treated as a string
         df['ID'] = df['ID'].astype(str)
-        # df_phone = str(df_phone)
-        
+
+        # Ensure 'Status (Hot/Warm/Cold/Not Responded)' column is cast to object
+        if 'Status (Hot/Warm/Cold/Not Responded)' in df.columns:
+            df['Status (Hot/Warm/Cold/Not Responded)'] = df['Status (Hot/Warm/Cold/Not Responded)'].astype(object)
+        else:
+            df['Status (Hot/Warm/Cold/Not Responded)'] = None  # Initialize if column doesn't exist
+
+        # Find the matching row by 'ID'
         matched_row = df[df['ID'] == df_userid]
-            
+
         if not matched_row.empty:
-            # Update the 'Status' column
+            # Update the 'Status (Hot/Warm/Cold/Not Responded)' column
             index = matched_row.index[0]
-            if pd.notna(df.at[index, 'Chat Summary']):
+            if pd.notna(df.at[index, 'Status (Hot/Warm/Cold/Not Responded)']):
                 df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = f" {status.content}"
             else:
                 df.at[index, 'Status (Hot/Warm/Cold/Not Responded)'] = status.content
-            save_path=config.REPORT_PATH    
+
+            # Save the updated DataFrame to an Excel file
+            save_path = config.REPORT_PATH
             df.to_excel(save_path, index=False)
-            name=st.session_state.user_name
-            print(f"Chat summary updated successfully for Member: {name}")
+
+            # Get user name from session state
+            name = st.session_state.user_name
+            print(f"Status updated successfully for Member: {name}")
             return True
 
     except Exception as e:
@@ -388,7 +430,9 @@ def get_llm_function():
     llm_functions = {
         "Azure OpenAI": initialize_llm_azure,
         "Llama 3.1": initialize_llm_llama,
-        "Mistral": initialize_llm_mistral,
+        "Phi3.5":initialize_llm_phi,
+        "Mistral":initialize_llm_mistral,
+        "Deepseek": initialize_llm_deepseek
     }
 
     # Return the corresponding function or raise an error
@@ -407,7 +451,7 @@ def main():
         llm = llm_function()
         
     
-        embeddings = initialize_embeddings()
+        embeddings = initialize_embeddings_azure()
         company_collection = initialize_collections(embeddings)
         
         initialize_session_state()
@@ -440,6 +484,8 @@ def main():
 
         button_container = st.empty()
         user_content=match_user_data()
+        
+        print("This is user content in main",user_content)
 
         if user_content:
             handle_conversation_start(button_container, company_collection, user_content)

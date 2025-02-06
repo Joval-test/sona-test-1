@@ -157,7 +157,7 @@ def connect_report(file_path):
                 st.error(" Upload user information in the Settings section.")
                 return
     else:
-        st.error("No users found in the database. Upload user information in the Settings section.")
+        st.warning("No users found in the database. Upload user information in the Settings section.")
         return
 
     # Load the Excel file
@@ -283,14 +283,12 @@ def settings():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
-        model_options = ["Azure OpenAI", "Llama 3.1", "Mistral"]
+        model_options = ["Azure OpenAI", "Llama 3.1","Phi3.5","Mistral","Deepseek"]
         selected_model = st.selectbox("Select LLM Model:", model_options)
         
         if st.button("Save Configuration"):
             st.success(f"LLM updated to {selected_model} successfully!")
-            print(f"Before update: {config.llm}")
             update_llm_in_config(selected_model)
-            print(f"After update: {config.llm}")
         
     setup_company_section()
     if not len(st.session_state.company_collection.get()['ids']) > 0:
@@ -510,7 +508,7 @@ def save_selected_users_to_excel(selected_data, file_path):
     with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
         combined_data.to_excel(writer, index=False, sheet_name="Selected Users")
 
-    st.success(f"File successfully saved to: {file_path}")
+    # st.success(f"File successfully saved to: {file_path}")
 
 def show_user_data_modal():
     """Show user data in a proper table format with persistent checkboxes, separated by source."""
@@ -636,7 +634,7 @@ def show_user_data_modal():
 def main():
     langchain.debug = True
     initialize_session_state()
-    embeddings = initialize_embeddings()
+    embeddings = initialize_embeddings_azure()
     company_collection = initialize_collections(embeddings)
 
     st.session_state.company_collection = company_collection
