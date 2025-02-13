@@ -152,28 +152,27 @@ def connect_report(file_path):
     """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
     # Ensure the file exists
     if os.path.exists(file_path):
-            st.session_state.send_user_data_df = pd.read_excel(file_path)
-            if st.session_state.send_user_data_df.empty:
-                st.error(" Upload user information in the Settings section.")
-                return
+        data = pd.read_excel(file_path)
+        st.session_state.send_user_data_df = data
+        if data.empty:
+            st.error("Upload user information in the Settings section.")
+            return
     else:
         st.warning("No users found in the database. Upload user information in the Settings section.")
         return
 
-    # Load the Excel file
-    data = pd.read_excel(file_path)
-
     # Add default "Not Responded" value to the first column if not already set
-    if "Status (Hot/Warm/Cold/Not Responded)" in data.columns:
-        data["Status (Hot/Warm/Cold/Not Responded)"].fillna("Not Responded", inplace=True)
+    status_col = "Status (Hot/Warm/Cold/Not Responded)"
+    if status_col in data.columns:
+        data[status_col].fillna("Not Responded", inplace=True)
     else:
-        st.error("The required column 'Status (Hot/Warm/Cold/Not Responded)' is missing in the file.")
+        st.error(f"The required column '{status_col}' is missing in the file.")
         return
 
     # Standardize status values to ensure consistent filtering
-    data["Status (Hot/Warm/Cold/Not Responded)"] = data["Status (Hot/Warm/Cold/Not Responded)"].str.strip().str.title()
+    data[status_col] = data[status_col].str.strip().str.title()
 
-    # Initialize session state for selection if not already set
+    # Initialize session state for row selection if not already set
     if "selected_users" not in st.session_state:
         st.session_state.selected_users = {index: False for index in data.index}
 
@@ -181,12 +180,12 @@ def connect_report(file_path):
     statuses = ["Hot", "Warm", "Cold", "Not Responded"]
     for status in statuses:
         st.markdown(f"### {status} Leads")
-        status_data = data[data["Status (Hot/Warm/Cold/Not Responded)"] == status]
+        status_data = data[data[status_col] == status]
 
         if not status_data.empty:
             st.dataframe(status_data)
 
-            # Download button for each status group
+            # Provide a download button for each status group
             output = BytesIO()
             with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
                 status_data.to_excel(writer, index=False, sheet_name=f"{status} Data")
@@ -204,22 +203,18 @@ def connect_report(file_path):
     # Identify selected rows
     selected_indices = [idx for idx, selected in st.session_state.selected_users.items() if selected]
 
-    # Buttons for actions
     if selected_indices:
         st.markdown("### Actions for Selected Rows")
 
-        # Button to delete selected rows
+        # Delete selected rows
         if st.button("Delete Selected Rows"):
             updated_data = data.drop(selected_indices)
-
-            # Save the updated data back to the Excel file
             with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
                 updated_data.to_excel(writer, index=False, sheet_name="Updated Data")
-
             st.success(f"{len(selected_indices)} rows have been deleted.")
             st.rerun()
 
-        # Button to download selected rows
+        # Download selected rows
         selected_data = data.iloc[selected_indices]
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -233,21 +228,16 @@ def connect_report(file_path):
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    # Button to delete all rows
+    # Delete all rows
     if st.button("Delete All Rows"):
-        df=pd.read_excel(file_path)
-        headers = df.columns.tolist()
+        headers = data.columns.tolist()
+        empty_df = pd.DataFrame(columns=headers)
         with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
-            pd.DataFrame().to_excel(writer, index=False, sheet_name="Updated Data")
-
-        with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
-            empty_df = pd.DataFrame(columns=headers)
             empty_df.to_excel(writer, index=False, sheet_name="Updated Data")
-
-        st.success("All rows have been deleted")
+        st.success("All rows have been deleted.")
         st.rerun()
 
-    # Button to download all rows
+    # Download all rows
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         data.to_excel(writer, index=False, sheet_name="All Data")
@@ -299,6 +289,7 @@ def settings():
     setup_user_section()
     if st.button("Clear All Data"):
         if clear_collections(st.session_state.company_collection):
+            os.remove(config.MASTER_PATH)
             st.rerun()
         # if st.session_state.company_files_processed > 1 and st.session_state.user_files_processed > 1:
         #     send_chroma_to_flask(PERSIST_DIRECTORY)
@@ -314,7 +305,14 @@ def help():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
-        st.write("THIS IS THE HELP SECTION")
+        st.write("")
+        st.header("Welcome to Caze Bizcon AI!")
+        st.write("""Make sure to do the following to ensure you get the most out of this tool:
+- Upload both lead details and your company details in Settings
+- Ensure that the material you upload about your company has all the relevant information about your products that you'd like to be conveyed
+- Check summaries of conversations to instantly know what was discussed with any given user
+
+If you need any help with using the product, or you run into any issues, you can contact our team at info@cazelabs.com!""")
     
 def update_llm_in_config(selected_model):
     config_file_path = "config.json"

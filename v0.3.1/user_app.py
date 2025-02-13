@@ -161,9 +161,9 @@ def handle_user_input(llm, embeddings, company_collection, user_info):
             st.session_state.messages[0] = create_system_message(context)
         
             response = llm.invoke(st.session_state.messages)
-            clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
-            st.session_state.messages.append(AIMessage(content=clean_response))
-            st.chat_message("assistant", avatar=config.ICON_PATH).write(clean_response)
+            # clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+            st.session_state.messages.append(AIMessage(content=response.content))
+            st.chat_message("assistant", avatar=config.ICON_PATH).write(response.content)
             
             if "have a great day" in response.content.lower():
                 conversation=st.session_state.messages
@@ -274,9 +274,13 @@ def prepare_status(llm, prompt_summary, df, df_userid):
                 
 def load_user_data():
     data_path=config.REPORT_PATH
-    df = pd.read_excel(data_path)
-    st.session_state.user_data_df = df
-    
+    if(os.path.exists(data_path)):
+        print("data path opened")
+        df = pd.read_excel(data_path)
+        st.session_state.user_data_df = df
+    else:
+        print("File path doesnt exist")
+        # st.warning("You do not have access to this chat please contact the admin for access.")
     
 def match_user_data():
     """Match custom URL with user data and store in vector DB."""
@@ -443,19 +447,11 @@ def get_llm_function():
 
 def main():
     try:
-        # Get the LLM initialization function
-        llm_function = get_llm_function()
-        print(llm_function)
-        
-        # Call the function to initialize the selected LLM
-        llm = llm_function()
-        
     
         embeddings = initialize_embeddings_azure()
         company_collection = initialize_collections(embeddings)
         
         initialize_session_state()
-        load_user_data()
         
         st.session_state.company_collection = company_collection
         # st.session_state.user_collection = user_collection
@@ -476,6 +472,13 @@ def main():
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
     
         # phone_number = st.text_input("Enter your phone number", value=st.session_state.phone_number)
+        
+        llm_function = get_llm_function()
+        print(llm_function)
+        load_user_data()
+        
+        # Call the function to initialize the selected LLM
+        llm = llm_function()
         
         st.session_state.userid = None
         # st.session_state.phone_number_entered = True
@@ -500,7 +503,8 @@ def main():
             st.warning("You do not have access to this chat please contact the admin for access.")
         
     except ValueError as e:
-        st.error(str(e))
+        print(str(e))
+        
 
 if __name__ == "__main__":
     main()
