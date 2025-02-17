@@ -7,3 +7,5 @@ db.sqlite3
 chroma_storage/
 *.bin
 *.xlsx
+*.ipynb
+*.env
