@@ -1,11 +1,13 @@
 import os
-import secret
+from dotenv import load_dotenv
 
-AZURE_ENDPOINT = secret.AZURE_ENDPOINT
-AZURE_API_KEY = secret.AZURE_KEY
-AZURE_API_VERSION = "2024-05-01-preview"
-AZURE_DEPLOYMENT = "gpt40-mini-long-context"
-AZURE_EMBEDDING_DEPLOYMENT = "embedding"
+load_dotenv()
+
+AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
+AZURE_API_KEY = os.getenv("AZURE_KEY")
+AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
+AZURE_DEPLOYMENT = os.getenv("AZURE_DEPLOYMENT")
+AZURE_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_EMBEDDING_DEPLOYMENT")
 
 PERSIST_DIRECTORY = os.path.join(os.getcwd(), "chroma_storage")
 os.makedirs(PERSIST_DIRECTORY, exist_ok=True)
