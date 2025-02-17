@@ -17,8 +17,4 @@ CAZE_PATH = os.path.join(os.getcwd(), "images", "caze_labs_logo.png")
 ICON_PATH = os.path.join(os.getcwd(), "images", "icon.png")
 MASTER_PATH=os.path.join(os.getcwd(),"data","master_user_data.xlsx")
 REPORT_PATH=os.path.join(os.getcwd(),"data","selected_users.xlsx")
-<<<<<<< HEAD:v0.3.1/config.py
-BASE_LINK="localhost:8502"
-=======
 BASE_LINK="127.0.0.1:8502"     #Change the ip here
->>>>>>> 31ab26f9083a581884682fc9f7d4884aedbd2556:config.py
