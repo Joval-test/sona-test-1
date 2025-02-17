@@ -11,6 +11,8 @@ from config import *
 from streamlit_option_menu import option_menu
 from datetime import datetime
 from io import BytesIO
+import json
+from send_mail import send_email,prepare_email_message
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -41,8 +43,8 @@ def initialize_session_state():
     
     if 'send_user_data_df' not in st.session_state:
         st.session_state.send_user_data_df = None
-    if 'input_phone_number' not in st.session_state:
-        st.session_state.input_phone_number = ""
+    if 'input_email' not in st.session_state:
+        st.session_state.input_email = ""
     if 'matched_user_data' not in st.session_state:
         st.session_state.matched_user_data = None
     if 'input_interface_visible' not in st.session_state:
@@ -71,7 +73,7 @@ def setup_user_section():
     user_files = st.file_uploader(
                 label="",  # Remove default label
                 type=['xlsx', 'xls', 'csv'],
-                help="Upload Excel (.xlsx/.xls) or CSV file with columns: ID, Name, Company, Phone Number, Age, Description",
+                help="Upload Excel (.xlsx/.xls) or CSV file with columns: ID, Name, Company, Email, Age, Description",
                 accept_multiple_files=True, 
             )
     if user_files and st.button("Process User Files", key="process_user_files"):
@@ -79,7 +81,7 @@ def setup_user_section():
     
 
 
-def setup_sidebar():
+def setup_sidebar(llm,embeddings):
     st.markdown(
     """
     <style>
@@ -131,7 +133,7 @@ def setup_sidebar():
         st.session_state.page = "Help"
     
     if st.session_state.page == "Connect":
-        setup_header()
+        setup_header(llm,embeddings)
     elif st.session_state.page == "Report":
         file_path=config.REPORT_PATH
         connect_report(file_path)
@@ -151,28 +153,27 @@ def connect_report(file_path):
     """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
     # Ensure the file exists
     if os.path.exists(file_path):
-            st.session_state.send_user_data_df = pd.read_excel(file_path)
-            if st.session_state.send_user_data_df.empty:
-                st.error(" Upload user information in the Settings section.")
-                return
+        data = pd.read_excel(file_path)
+        st.session_state.send_user_data_df = data
+        if data.empty:
+            st.error("Upload user information in the Settings section.")
+            return
     else:
-        st.error("No users found in the database. Upload user information in the Settings section.")
+        st.warning("No users found in the database. Upload user information in the Settings section.")
         return
 
-    # Load the Excel file
-    data = pd.read_excel(file_path)
-
     # Add default "Not Responded" value to the first column if not already set
-    if "Status (Hot/Warm/Cold/Not Responded)" in data.columns:
-        data["Status (Hot/Warm/Cold/Not Responded)"].fillna("Not Responded", inplace=True)
+    status_col = "Status (Hot/Warm/Cold/Not Responded)"
+    if status_col in data.columns:
+        data[status_col].fillna("Not Responded", inplace=True)
     else:
-        st.error("The required column 'Status (Hot/Warm/Cold/Not Responded)' is missing in the file.")
+        st.error(f"The required column '{status_col}' is missing in the file.")
         return
 
     # Standardize status values to ensure consistent filtering
-    data["Status (Hot/Warm/Cold/Not Responded)"] = data["Status (Hot/Warm/Cold/Not Responded)"].str.strip().str.title()
+    data[status_col] = data[status_col].str.strip().str.title()
 
-    # Initialize session state for selection if not already set
+    # Initialize session state for row selection if not already set
     if "selected_users" not in st.session_state:
         st.session_state.selected_users = {index: False for index in data.index}
 
@@ -180,12 +181,12 @@ def connect_report(file_path):
     statuses = ["Hot", "Warm", "Cold", "Not Responded"]
     for status in statuses:
         st.markdown(f"### {status} Leads")
-        status_data = data[data["Status (Hot/Warm/Cold/Not Responded)"] == status]
+        status_data = data[data[status_col] == status]
 
         if not status_data.empty:
             st.dataframe(status_data)
 
-            # Download button for each status group
+            # Provide a download button for each status group
             output = BytesIO()
             with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
                 status_data.to_excel(writer, index=False, sheet_name=f"{status} Data")
@@ -203,22 +204,18 @@ def connect_report(file_path):
     # Identify selected rows
     selected_indices = [idx for idx, selected in st.session_state.selected_users.items() if selected]
 
-    # Buttons for actions
     if selected_indices:
         st.markdown("### Actions for Selected Rows")
 
-        # Button to delete selected rows
+        # Delete selected rows
         if st.button("Delete Selected Rows"):
             updated_data = data.drop(selected_indices)
-
-            # Save the updated data back to the Excel file
             with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
                 updated_data.to_excel(writer, index=False, sheet_name="Updated Data")
-
             st.success(f"{len(selected_indices)} rows have been deleted.")
             st.rerun()
 
-        # Button to download selected rows
+        # Download selected rows
         selected_data = data.iloc[selected_indices]
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -232,21 +229,16 @@ def connect_report(file_path):
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    # Button to delete all rows
+    # Delete all rows
     if st.button("Delete All Rows"):
-        df=pd.read_excel(file_path)
-        headers = df.columns.tolist()
+        headers = data.columns.tolist()
+        empty_df = pd.DataFrame(columns=headers)
         with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
-            pd.DataFrame().to_excel(writer, index=False, sheet_name="Updated Data")
-
-        with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
-            empty_df = pd.DataFrame(columns=headers)
             empty_df.to_excel(writer, index=False, sheet_name="Updated Data")
-
-        st.success("All rows have been deleted")
+        st.success("All rows have been deleted.")
         st.rerun()
 
-    # Button to download all rows
+    # Download all rows
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         data.to_excel(writer, index=False, sheet_name="All Data")
@@ -282,6 +274,13 @@ def settings():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
+        model_options = ["Azure OpenAI", "Llama 3.1","Phi3.5","Mistral","Deepseek"]
+        selected_model = st.selectbox("Select LLM Model:", model_options)
+        
+        if st.button("Save Configuration"):
+            st.success(f"LLM updated to {selected_model} successfully!")
+            update_llm_in_config(selected_model)
+        
     setup_company_section()
     if not len(st.session_state.company_collection.get()['ids']) > 0:
         st.warning("Company information not available")
@@ -291,6 +290,7 @@ def settings():
     setup_user_section()
     if st.button("Clear All Data"):
         if clear_collections(st.session_state.company_collection):
+            os.remove(config.MASTER_PATH)
             st.rerun()
         # if st.session_state.company_files_processed > 1 and st.session_state.user_files_processed > 1:
         #     send_chroma_to_flask(PERSIST_DIRECTORY)
@@ -306,11 +306,29 @@ def help():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
-        st.write("THIS IS THE HELP SECTION")
-    
-    
+        st.write("")
+        st.header("Welcome to Caze Bizcon AI!")
+        st.write("""Make sure to do the following to ensure you get the most out of this tool:
+- Upload both lead details and your company details in Settings
+- Ensure that the material you upload about your company has all the relevant information about your products that you'd like to be conveyed
+- Check summaries of conversations to instantly know what was discussed with any given user
 
-def setup_header():
+If you need any help with using the product, or you run into any issues, you can contact our team at info@cazelabs.com!""")
+    
+def update_llm_in_config(selected_model):
+    config_file_path = "config.json"
+    with open(config_file_path, "r") as file:
+        config = json.load(file)
+
+    config["llm"] = selected_model
+
+    with open(config_file_path, "w") as file:
+        json.dump(config, file, indent=4)
+
+    print(f"Updated LLM in config.json: {selected_model}")
+
+
+def setup_header(llm,embeddings):
     if not st.session_state.hide_info_bar:
         st.info("👈 Let's start by uploading the informations of the company and the user.")
     with open(config.ICON_PATH, "rb") as image_file:
@@ -324,7 +342,7 @@ def setup_header():
     """
     st.markdown(image_and_heading_html, unsafe_allow_html=True)
     st.write("")
-    show_user_data_modal()
+    show_user_data_modal(llm,embeddings)
 
 def process_company_files(files):
     st.info(f"Processing {len(files)} company file(s)...")
@@ -381,7 +399,7 @@ def process_user_files(user_files):
                     continue
 
                 # Ensure the file contains the required columns
-                required_columns = ['ID', 'Name', 'Company', 'Phone Number', 'Age', 'Description']
+                required_columns = ['ID', 'Name', 'Company', 'Email', 'Age', 'Description']
                 if all(col in df.columns for col in required_columns):
                     new_dfs.append((file.name, df))  # Add the dataframe along with file name
 
@@ -463,7 +481,7 @@ def update_master_file(new_data, source_file):
 def generate_custom_user_url(user_id):
     """Generate a custom URL for each user."""
     base_link=config.BASE_LINK
-    return f"{base_link}?user={user_id}"
+    return f"http://{base_link}?user={user_id}"
 
 def save_selected_users_to_excel(selected_data, file_path):
     """Save selected user data to an Excel file, appending new selections if the file exists."""
@@ -489,9 +507,9 @@ def save_selected_users_to_excel(selected_data, file_path):
     with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
         combined_data.to_excel(writer, index=False, sheet_name="Selected Users")
 
-    st.success(f"File successfully saved to: {file_path}")
+    # st.success(f"File successfully saved to: {file_path}")
 
-def show_user_data_modal():
+def show_user_data_modal(llm,embeddings):
     """Show user data in a proper table format with persistent checkboxes, separated by source."""
 
     # Button to show data
@@ -521,8 +539,8 @@ def show_user_data_modal():
     if st.session_state.get("show_user_data", False):
         user_df = st.session_state.user_data_df
 
-        if "source" not in user_df.columns:
-            st.error("The 'source' column is missing in the uploaded data.")
+        if "source" not in user_df.columns or "Email" not in user_df.columns:
+            st.error("The 'source' or 'Email' column is missing in the uploaded data.")
             return
 
         st.markdown("## User Data Overview")
@@ -562,7 +580,7 @@ def show_user_data_modal():
             cols[1].markdown("**ID**")
             cols[2].markdown("**Name**")
             cols[3].markdown("**Company**")
-            cols[4].markdown("**Phone Number**")
+            cols[4].markdown("**Email**")
             cols[5].markdown("**Age**")
 
             # Display each row for the current source group with individual checkboxes
@@ -585,7 +603,7 @@ def show_user_data_modal():
                 cols[1].markdown(str(row["ID"]))
                 cols[2].markdown(row["Name"])
                 cols[3].markdown(row["Company"])
-                cols[4].markdown(str(row["Phone Number"]))
+                cols[4].markdown(str(row["Email"]))
                 cols[5].markdown(str(row["Age"]))
 
         # Collect all selected rows globally
@@ -602,7 +620,36 @@ def show_user_data_modal():
                 selected_data = user_df.loc[valid_selected_rows]
                 st.success(f"Selected {len(valid_selected_rows)} users globally.")
 
-                # Save the Excel file to the specified path
+                # Extract email addresses
+                recipient_emails = selected_data["Email"].tolist()
+                lead_info = [
+                    {"name": row["Name"], "description": row["Description"]}
+                    for _, row in selected_data.iterrows()
+                ]
+                print("\n\n#######This is the lead info############",lead_info,"\n\n")
+                custom_url = selected_data["ID"].apply(generate_custom_user_url)
+                
+
+                # Email content
+                subject = "Explore Our Products with Just One Click"
+                
+                for email, info, product_link in zip(recipient_emails,lead_info,custom_url):
+                    # Prepare the personalized message
+                    body_message = prepare_email_message(st.session_state.company_collection,str(info),llm,embeddings,product_link)
+                    message = body_message + f"\n\nFor more informations please visit this {product_link} to connect with us.\n\n\n Best regards,\n Caze Labs Team"
+                    print(message)
+                    # Send the email
+                    send_email(
+                        sender_email="joval@cazelabs.com",  # Replace with your email
+                        sender_password="olpqfvpewdzitibp",  # Replace with your app password
+                        recipient_email=email,
+                        subject=subject,
+                        message=message,
+                    )
+
+
+
+                # Save the selected data to an Excel file (if needed)
                 file_path = config.REPORT_PATH
                 save_selected_users_to_excel(selected_data, file_path)
         else:
@@ -612,16 +659,18 @@ def show_user_data_modal():
 
 
 
+
 def main():
     langchain.debug = True
     initialize_session_state()
-    embeddings = initialize_embeddings()
+    llm=initialize_llm_azure()
+    embeddings = initialize_embeddings_azure()
     company_collection = initialize_collections(embeddings)
 
     st.session_state.company_collection = company_collection
     # st.session_state.user_collection = user_collection
     
-    setup_sidebar()
+    setup_sidebar(llm,embeddings)
 
 if __name__ == "__main__":
     main()

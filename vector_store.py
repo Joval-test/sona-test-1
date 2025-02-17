@@ -1,6 +1,7 @@
 from langchain_core.documents import Document
 import streamlit as st
 from data_processor import *
+import re
 
 def process_and_store_content(content, collection, source_type, source_name):
     content_hash = calculate_sha256(str(content))
@@ -42,14 +43,12 @@ def process_and_store_content(content, collection, source_type, source_name):
     except Exception as e:
         print(f"Error adding documents: {e}")
 
-def query_collections(query_text, company_collection, user_info, embeddings, n_results=3):
+def query_collections(query_text, company_collection, user_info, embeddings, llm, n_results=3):
     try:
         company_results = company_collection.similarity_search_by_vector(
             embedding=embeddings.embed_query(query_text), k=1
         )
-        # user_results = user_collection.similarity_search_by_vector(
-        #     embedding=embeddings.embed_query(query_text), k=1
-        # )
+        
         
         context = {
             "COMPANY INFO": [],
@@ -57,22 +56,24 @@ def query_collections(query_text, company_collection, user_info, embeddings, n_r
         }
         
         if company_results and len(company_results) > 0:
+            print("################################THIS IS THE COMPANY RESULTS######################################",company_results)
             for result in company_results:
                 if hasattr(result, "page_content"):
+                    # print("This is the page content of company info extracted from embedding:",result.page_content)
                     context["COMPANY INFO"].append(result.page_content)
+            # print("This is the user info available in query collection: ", user_info)
 
-        # if user_results and len(user_results) > 0:
-        #     for result in user_results:
-        #         if hasattr(result, "page_content"):
-        #             context["USER INFO"].append(result.page_content)
-        
-        # if user_info:
-        #     print(user_info)
         formatted_context = ""
         if context["COMPANY INFO"]:
-            formatted_context += "<< COMPANY INFO >>\n" + "\n".join(context["COMPANY INFO"]) + "\n\n"
+            company_info=context["COMPANY INFO"]
+            # response=llm.invoke(f"From this info generate a json with company name, company products (list them with their descriptions) and company extra information do not provide any bookends and do not hallucinate. {company_info}")
+            # response=str(response.content).replace("`","").replace("json","")
+            # clean_text = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL)
+            # # print("####################################################THIS IS THE RESPONSE OF THE JSON THAT WAS ASKED TO MAKE###########################################",clean_text)
+            # print("######################## END OF RESPONSE ################################################")
+            formatted_context += "<< COMPANY INFO >>\n" + "\n".join(company_info) + "\n\n <<END OF COMPANY INFO>>\n\n"
         if user_info:
-            formatted_context += "<< USER INFO >>\n" + "\n".join(user_info)
+            formatted_context += "<< USER INFO >>\n" + "\n".join(user_info) + "\n\n <<END OF USER INFO>>"
         
         return formatted_context
     except Exception as e:
@@ -86,8 +87,6 @@ def clear_collections(company_collection): #add User collection incase we're usi
         
         if company_ids:
             company_collection.delete(ids=company_ids)
-        # if user_ids:
-        #     user_collection.delete(ids=user_ids)
             
         return True
     except Exception as e:

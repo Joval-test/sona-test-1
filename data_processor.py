@@ -1,8 +1,8 @@
 import hashlib
-from docling_loader import DoclingPDFLoader
+from langchain_docling import DoclingLoader
+from langchain_docling.loader import ExportType
 import requests
 from bs4 import BeautifulSoup
-import tempfile
 from langchain_core.documents import Document
 import streamlit as st
 import pandas as pd
@@ -13,7 +13,7 @@ def calculate_sha256(content):
     return hashlib.sha256(content).hexdigest()
 
 def extract_text_from_pdf(pdf_file):
-    loader = DoclingPDFLoader(pdf_file)
+    loader = DoclingLoader(file_path=pdf_file,export_type=ExportType.MARKDOWN)
     docs = loader.load_and_split()
     print(docs)
     return docs
