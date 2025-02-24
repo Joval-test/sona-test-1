@@ -151,40 +151,47 @@ def setup_sidebar(llm,embeddings):
     
 def connect_report(file_path):
     """Display, select, delete, and update rows from an Excel file with dynamic button visibility."""
+    
     # Ensure the file exists
-    if os.path.exists(file_path):
-        data = pd.read_excel(file_path)
-        st.session_state.send_user_data_df = data
-        if data.empty:
-            st.error("Upload user information in the Settings section.")
-            return
-    else:
-        st.warning("No users found in the database. Upload user information in the Settings section.")
+    if not os.path.exists(file_path):
+        st.warning("Send messages to the leads for report generation.")
         return
 
-    # Add default "Not Responded" value to the first column if not already set
+    # Read Excel file
+    try:
+        data = pd.read_excel(file_path)
+        st.session_state.send_user_data_df = data
+    except Exception as e:
+        st.error(f"Error reading the Excel file: {e}")
+        return
+
+    if data.empty:
+        st.error("Upload user information in the Settings section.")
+        return
+
+    # Define the status column
     status_col = "Status (Hot/Warm/Cold/Not Responded)"
-    if status_col in data.columns:
-        data[status_col].fillna("Not Responded", inplace=True)
-    else:
+    
+    if status_col not in data.columns:
         st.error(f"The required column '{status_col}' is missing in the file.")
         return
 
-    # Standardize status values to ensure consistent filtering
-    data[status_col] = data[status_col].str.strip().str.title()
+    # Fill missing status values
+    data[status_col] = data[status_col].fillna("Not Responded").str.strip().str.title()
 
-    # Initialize session state for row selection if not already set
-    if "selected_users" not in st.session_state:
+    # Initialize session state for selected users if not set
+    if "selected_users" not in st.session_state or not isinstance(st.session_state.selected_users, dict):
         st.session_state.selected_users = {index: False for index in data.index}
 
-    # Display data grouped by status
+    # Display grouped data
     statuses = ["Hot", "Warm", "Cold", "Not Responded"]
+    
     for status in statuses:
         st.markdown(f"### {status} Leads")
         status_data = data[data[status_col] == status]
 
         if not status_data.empty:
-            st.dataframe(status_data)
+            st.dataframe(status_data.drop(columns=[status_col]))
 
             # Provide a download button for each status group
             output = BytesIO()
@@ -204,19 +211,22 @@ def connect_report(file_path):
     # Identify selected rows
     selected_indices = [idx for idx, selected in st.session_state.selected_users.items() if selected]
 
+    # Validate selected indices
+    selected_indices = [idx for idx in selected_indices if 0 <= idx < len(data)]
+    
     if selected_indices:
         st.markdown("### Actions for Selected Rows")
 
         # Delete selected rows
         if st.button("Delete Selected Rows"):
-            updated_data = data.drop(selected_indices)
+            updated_data = data.drop(selected_indices).reset_index(drop=True)
             with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
                 updated_data.to_excel(writer, index=False, sheet_name="Updated Data")
             st.success(f"{len(selected_indices)} rows have been deleted.")
             st.rerun()
 
         # Download selected rows
-        selected_data = data.iloc[selected_indices]
+        selected_data = data.loc[selected_indices]  # Using `.loc[]` to avoid index errors
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             selected_data.to_excel(writer, index=False, sheet_name="Selected Data")
@@ -419,7 +429,7 @@ def process_user_files(user_files):
         for file_name, df in new_dfs:
             try:
                 update_master_file(df, file_name)  # Pass dataframe and source file name
-                st.success(f"Successfully processed and updated master file with {file_name}!")
+                st.success(f"Successfully processed {file_name}!")
             except Exception as update_error:
                 st.error(f"Error updating master file with {file_name}: {str(update_error)}")
 
@@ -618,7 +628,7 @@ def show_user_data_modal(llm,embeddings):
         if valid_selected_rows:
             if st.button("Send Message to All Selected Users"):
                 selected_data = user_df.loc[valid_selected_rows]
-                st.success(f"Selected {len(valid_selected_rows)} users globally.")
+                # st.success(f"Selected {len(valid_selected_rows)} users globally.")
 
                 # Extract email addresses
                 recipient_emails = selected_data["Email"].tolist()
@@ -646,12 +656,10 @@ def show_user_data_modal(llm,embeddings):
                         subject=subject,
                         message=message,
                     )
-
-
-
                 # Save the selected data to an Excel file (if needed)
                 file_path = config.REPORT_PATH
                 save_selected_users_to_excel(selected_data, file_path)
+                st.success("Successfully sent messages to Leads")
         else:
             st.error("No valid users selected.")
 
