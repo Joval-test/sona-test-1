@@ -226,7 +226,7 @@ def connect_report(file_path):
             st.rerun()
 
         # Download selected rows
-        selected_data = data.loc[selected_indices]  # Using `.loc[]` to avoid index errors
+        selected_data = data.loc[selected_indices]  
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             selected_data.to_excel(writer, index=False, sheet_name="Selected Data")
@@ -415,11 +415,11 @@ def process_user_files(user_files):
 
                     # Log the processing details
                     processing_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    st.session_state["file_processing_log"].append({
-                        "File Name": file.name,
-                        "Leads": len(df),
-                        "Processed At": processing_time
-                    })
+                    st.session_state["file_processing_log"] = st.session_state["file_processing_log"] + [{
+                                                                                                        "File Name": file.name,
+                                                                                                        "Leads": len(df),
+                                                                                                        "Processed At": processing_time
+                                                                                                    }]
                 else:
                     st.error(f"File {file.name} must contain columns: {', '.join(required_columns)}")
             except Exception as file_error:
@@ -646,7 +646,7 @@ def show_user_data_modal(llm,embeddings):
                 for email, info, product_link in zip(recipient_emails,lead_info,custom_url):
                     # Prepare the personalized message
                     body_message = prepare_email_message(st.session_state.company_collection,str(info),llm,embeddings,product_link)
-                    message = body_message + f"\n\nFor more informations please visit this {product_link} to connect with us.\n\n\n Best regards,\n Caze Labs Team"
+                    message = body_message + f" {product_link}\n\n\n Best regards,\n Caze Labs Team"
                     print(message)
                     # Send the email
                     send_email(
@@ -661,7 +661,7 @@ def show_user_data_modal(llm,embeddings):
                 save_selected_users_to_excel(selected_data, file_path)
                 st.success("Successfully sent messages to Leads")
         else:
-            st.error("No valid users selected.")
+            st.warning("Choose the leads you want to email and start a conversation with.")
 
 
 
