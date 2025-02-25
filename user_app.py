@@ -9,6 +9,7 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 import pandas as pd
 import base64
 import json
+import openai
 
 def initialize_session_state():
     if 'messages' not in st.session_state:
@@ -86,25 +87,6 @@ def initialize_session_state():
 #                 return True
 #         return False
 
-# def handle_chat_interface(llm, embeddings, company_collection, user_collection):
-    
-#     if not st.session_state.conversation_started:
-#         initial_context = query_collections("company information and user information", company_collection, user_collection, embeddings)
-#         if initial_context:
-#             system_message = create_system_message(initial_context)
-#             initial_messages = [system_message]
-#             st.session_state.conversation_started = True
-
-#             response = llm(initial_messages)
-#             st.session_state.messages = initial_messages + [AIMessage(content=response.content)]
-#             print(st.session_state.messages)
-#             st.session_state.conversation_started = True
-#         else:
-#             st.error("No context found. Please ensure company and user information has been properly processed.")
-#             st.session_state.show_chat = False
-    
-#     display_chat_history()
-#     handle_user_input(llm, embeddings, company_collection, user_collection)
 
 def handle_conversation_start(button_container, company_collection, user_info):
     company_has_docs = len(company_collection.get()['ids']) > 0
@@ -118,26 +100,122 @@ def handle_conversation_start(button_container, company_collection, user_info):
     else:
         st.error("Please upload and process at least one user file/URL before starting the conversation.")
 
+
 def handle_chat_interface(llm, embeddings, company_collection, user_info):
-    if not st.session_state.conversation_started:
-        # print("This is user info in handle chat: ",user_info)
-        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings,llm)
-        # print("This is the initial context of the llm to work with",initial_context)
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    # Match user and check if a Chat Summary exists
+    user_doc = match_user_data()
+    
+    if user_doc and st.session_state.matched_user_data.get("Chat Summary"):
+        print("Chat Summary found. Asking user for continuation choice.")
+        past_summary = st.session_state.matched_user_data["Chat Summary"]
+
+        # Ensure the continue choice is stored
+        if "continue_choice" not in st.session_state:
+            st.session_state.continue_choice = None
+            st.session_state.show_chat = False  # Hide chat input
+
+        if st.session_state.continue_choice is None:
+            st.chat_message("assistant", avatar=config.ICON_PATH).write(
+                f"We were here last time:\n\n**{past_summary}**\n\nDo you want to continue from this conversation or start fresh?"
+            )
+            user_choice = st.text_input("Type 'continue' to proceed or 'start fresh' to reset:")
+
+            if user_choice:
+                if user_choice.lower() == "continue":
+                    st.session_state.continue_choice = "continue"
+                    st.session_state.show_chat = True  # Show chat input
+
+                    # Restore past context as a system message
+                    system_message = create_system_message(f"Previous Chat Summary: {past_summary}")
+                    st.session_state.messages.append(system_message)
+
+                    # Trigger the LLM with past context
+                    response = llm.invoke(st.session_state.messages)
+                    clean_response = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+
+                    # Store AI response
+                    st.session_state.messages.append(AIMessage(content=clean_response))
+                    st.chat_message("assistant", avatar=config.ICON_PATH).write(clean_response)
+                    
+                    st.rerun()  # Ensures UI updates
+                
+                elif user_choice.lower() == "start fresh":
+                    st.session_state.continue_choice = "start fresh"
+                    st.session_state.messages = []  # Reset messages
+                    st.session_state.show_chat = True  # Show chat input
+                    st.rerun()  # Ensures UI updates
+                
+                else:
+                    st.warning("Please type 'continue' or 'start fresh'.")
+                    return  # Don't proceed if invalid input
+        
+        if st.session_state.continue_choice == "continue":
+            print("User chose to continue. Resuming chat history.")
+        
+        elif st.session_state.continue_choice == "start fresh":
+            print("Starting a new conversation.")
+            initial_context = query_collections("company information and user information", company_collection, user_info, embeddings, llm)
+            
+            if initial_context:
+                system_message = create_system_message(initial_context)
+                st.session_state.messages = [system_message]
+
+                response = llm.invoke(st.session_state.messages)
+                clean_response = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+
+                st.session_state.messages.append(AIMessage(content=clean_response))
+                st.session_state.conversation_started = True
+            else:
+                st.error("No context found. Please ensure company and user information has been properly processed.")
+                st.session_state.show_chat = False  # Keep chat input hidden
+    else:
+        # No previous chat, start fresh
+        print("No previous chat found. Starting new conversation.")
+        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings, llm)
+        
         if initial_context:
             system_message = create_system_message(initial_context)
-            initial_messages = [system_message]
-            st.session_state.conversation_started = True
+            st.session_state.messages = [system_message]
 
-            response = llm.invoke(initial_messages)
-            clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
-            st.session_state.messages = initial_messages + [AIMessage(content=clean_response)]
+            response = llm.invoke(st.session_state.messages)
+            clean_response = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+
+            st.session_state.messages.append(AIMessage(content=clean_response))
             st.session_state.conversation_started = True
         else:
             st.error("No context found. Please ensure company and user information has been properly processed.")
-            st.session_state.show_chat = False
+            st.session_state.show_chat = False  # Keep chat input hidden
     
-    display_chat_history()
-    handle_user_input(llm, embeddings, company_collection, user_info)
+    
+
+    # Only allow chat input if conversation has started and choice is made
+    if st.session_state.get("show_chat", False):
+        display_chat_history()
+        handle_user_input(llm, embeddings, company_collection, user_info)
+
+# def handle_chat_interface(llm, embeddings, company_collection, user_info):
+#     if not st.session_state.conversation_started:
+#         # print("This is user info in handle chat: ",user_info)
+#         initial_context = query_collections("company information and user information", company_collection, user_info, embeddings,llm)
+#         # print("This is the initial context of the llm to work with",initial_context)
+#         if initial_context:
+#             system_message = create_system_message(initial_context)
+#             initial_messages = [system_message]
+#             st.session_state.conversation_started = True
+
+#             response = llm.invoke(initial_messages)
+#             clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+#             st.session_state.messages = initial_messages + [AIMessage(content=clean_response)]
+#             st.session_state.conversation_started = True
+#         else:
+#             st.error("No context found. Please ensure company and user information has been properly processed.")
+#             st.session_state.show_chat = False
+    
+#     display_chat_history()
+#     handle_user_input(llm, embeddings, company_collection, user_info)
 
 def display_chat_history():
     for message in st.session_state.messages[1:]:
@@ -159,53 +237,65 @@ def handle_user_input(llm, embeddings, company_collection, user_info):
             
             context = query_collections(user_input, company_collection, user_info, embeddings,llm)
             st.session_state.messages[0] = create_system_message(context)
-        
-            response = llm.invoke(st.session_state.messages)
-            # clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
-            st.session_state.messages.append(AIMessage(content=response.content))
-            st.chat_message("assistant", avatar=config.ICON_PATH).write(response.content)
-            
-            if "have a great day" in response.content.lower():
-                conversation=st.session_state.messages
-                messages_content = [f"{type(message).__name__}: {message.content}" 
-                    for message in conversation 
-                    if not isinstance(message, SystemMessage)]
-                print("\n".join(messages_content))
-                prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words, provide everything including the contact details. "
-                prompt_status = f"Based on the following conversation {messages_content}, can you categorize the user's interest level as one of the following: 'Hot':very interested, 'Warm':partially interested, or 'Cold': not interested? Give just one word answer"
-                df = st.session_state.user_data_df
-                df_userid= str(st.session_state.userid)
-                prepare_summary(llm,prompt_summary,df,df_userid)
-                prepare_status(llm,prompt_status,df,df_userid)
-                st.session_state.conversation_ended = True
-                st.rerun()
+            try:
+                response = llm.invoke(st.session_state.messages)
+                # clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+                st.session_state.messages.append(AIMessage(content=response.content))
+                st.chat_message("assistant", avatar=config.ICON_PATH).write(response.content)
+                
+                if "have a great day" in response.content.lower():
+                    conversation=st.session_state.messages
+                    messages_content = [f"{type(message).__name__}: {message.content}" 
+                        for message in conversation 
+                        if not isinstance(message, SystemMessage)]
+                    print("\n".join(messages_content))
+                    prompt_summary=f"From this conversation between the AIagent and the consumer prepare a summary of the conversation {messages_content} in 50 words, provide everything including the contact details. "
+                    prompt_status = f"Based on the following conversation {messages_content}, can you categorize the user's interest level as one of the following: 'Hot':very interested, 'Warm':partially interested, or 'Cold': not interested? Give just one word answer"
+                    df = st.session_state.user_data_df
+                    df_userid= str(st.session_state.userid)
+                    prepare_summary(llm,prompt_summary,df,df_userid)
+                    prepare_status(llm,prompt_status,df,df_userid)
+                    st.session_state.conversation_ended = True
+                    st.rerun()
+            except openai.BadRequestError as e:
+                error_message = str(e)
+                if "content_filter" in error_message:
+                    st.error("Your message was flagged by our content policy. Please rephrase and try again.")
+                    st.session_state.conversation_ended = True
+                    st.rerun()
+                else:
+                    st.error(f"An error occurred: {error_message}")
+                
 
 
 
-def prepare_summary(llm,prompt,df,df_userid):
-    summary=llm.invoke(prompt)
+def prepare_summary(llm, prompt, df, df_userid):
+    summary = llm.invoke(prompt)
     print(summary.content)
+    
     try:
         df['ID'] = df['ID'].astype(str)
         
         matched_row = df[df['ID'] == df_userid]
-            
+        
         if not matched_row.empty:
-            # Update the 'Chat Summary' column
+            # Find the index of the matched row
             index = matched_row.index[0]
-            if pd.notna(df.at[index, 'Chat Summary']):
-                df.at[index, 'Chat Summary'] += f" {summary.content}"
-            else:
-                df.at[index, 'Chat Summary'] = summary.content
-            save_path=config.REPORT_PATH    
+
+            # **Replace** the existing summary with the new one
+            df.at[index, 'Chat Summary'] = summary.content  
+            
+            save_path = config.REPORT_PATH    
             df.to_excel(save_path, index=False)
-            name=st.session_state.user_name
-            print(f"Chat summary updated successfully for Member: {name}")
+            
+            name = st.session_state.user_name
+            print(f"Chat summary replaced successfully for Member: {name}")
             return True
 
     except Exception as e:
         print(f"An error occurred: {e}")
         return False
+
     
 # def prepare_status(llm,prompt_summary,df,df_userid):
 #     status=llm.invoke(prompt_summary)
