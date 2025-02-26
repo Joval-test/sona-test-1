@@ -102,15 +102,11 @@ def handle_conversation_start(button_container, company_collection, user_info):
 
 
 def handle_chat_interface(llm, embeddings, company_collection, user_info):
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
     
-    # Match user and check if a Chat Summary exists
-    user_doc = match_user_data()
-    
-    if user_doc and st.session_state.matched_user_data.get("Chat Summary"):
+    chat_summary = st.session_state.matched_user_data["Chat Summary"]
+    if chat_summary and not pd.isna(chat_summary):
         print("Chat Summary found. Asking user for continuation choice.")
-        past_summary = st.session_state.matched_user_data["Chat Summary"]
+        print(f"###################{chat_summary}####################")
 
         # Ensure the continue choice is stored
         if "continue_choice" not in st.session_state:
@@ -119,7 +115,7 @@ def handle_chat_interface(llm, embeddings, company_collection, user_info):
 
         if st.session_state.continue_choice is None:
             st.chat_message("assistant", avatar=config.ICON_PATH).write(
-                f"We were here last time:\n\n**{past_summary}**\n\nDo you want to continue from this conversation or start fresh?"
+                f"We were here last time:\n\n**{chat_summary}**\n\nDo you want to continue from this conversation or start fresh?"
             )
             user_choice = st.text_input("Type 'continue' to proceed or 'start fresh' to reset:")
 
@@ -129,7 +125,7 @@ def handle_chat_interface(llm, embeddings, company_collection, user_info):
                     st.session_state.show_chat = True  # Show chat input
 
                     # Restore past context as a system message
-                    system_message = create_system_message(f"Previous Chat Summary: {past_summary}")
+                    system_message = create_system_message(f"Previous Chat Summary: {chat_summary}")
                     st.session_state.messages.append(system_message)
 
                     # Trigger the LLM with past context
@@ -144,7 +140,7 @@ def handle_chat_interface(llm, embeddings, company_collection, user_info):
                 
                 elif user_choice.lower() == "start fresh":
                     st.session_state.continue_choice = "start fresh"
-                    st.session_state.messages = []  # Reset messages
+                    # st.session_state.messages = []  # Reset messages
                     st.session_state.show_chat = True  # Show chat input
                     st.rerun()  # Ensures UI updates
                 
@@ -157,41 +153,41 @@ def handle_chat_interface(llm, embeddings, company_collection, user_info):
         
         elif st.session_state.continue_choice == "start fresh":
             print("Starting a new conversation.")
-            initial_context = query_collections("company information and user information", company_collection, user_info, embeddings, llm)
-            
+            if not st.session_state.conversation_started:
+            # print("This is user info in handle chat: ",user_info)
+                initial_context = query_collections("company information and user information", company_collection, user_info, embeddings,llm)
+                # print("This is the initial context of the llm to work with",initial_context)
+                if initial_context:
+                    system_message = create_system_message(initial_context)
+                    initial_messages = [system_message]
+                    st.session_state.conversation_started = True
+
+                    response = llm.invoke(initial_messages)
+                    clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+                    st.session_state.messages = initial_messages + [AIMessage(content=clean_response)]
+                    st.session_state.conversation_started = True
+                else:
+                    st.error("No context found. Please ensure company and user information has been properly processed.")
+                    st.session_state.show_chat = False
+
+    else:
+        if not st.session_state.conversation_started:
+            # print("This is user info in handle chat: ",user_info)
+            initial_context = query_collections("company information and user information", company_collection, user_info, embeddings,llm)
+            # print("This is the initial context of the llm to work with",initial_context)
             if initial_context:
                 system_message = create_system_message(initial_context)
-                st.session_state.messages = [system_message]
+                initial_messages = [system_message]
+                st.session_state.conversation_started = True
 
-                response = llm.invoke(st.session_state.messages)
-                clean_response = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
-
-                st.session_state.messages.append(AIMessage(content=clean_response))
+                response = llm.invoke(initial_messages)
+                clean_response=re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
+                st.session_state.messages = initial_messages + [AIMessage(content=clean_response)]
                 st.session_state.conversation_started = True
             else:
                 st.error("No context found. Please ensure company and user information has been properly processed.")
-                st.session_state.show_chat = False  # Keep chat input hidden
-    else:
-        # No previous chat, start fresh
-        print("No previous chat found. Starting new conversation.")
-        initial_context = query_collections("company information and user information", company_collection, user_info, embeddings, llm)
-        
-        if initial_context:
-            system_message = create_system_message(initial_context)
-            st.session_state.messages = [system_message]
+                st.session_state.show_chat = False
 
-            response = llm.invoke(st.session_state.messages)
-            clean_response = re.sub(r'<think>.*?</think>', '', response.content, flags=re.DOTALL)
-
-            st.session_state.messages.append(AIMessage(content=clean_response))
-            st.session_state.conversation_started = True
-        else:
-            st.error("No context found. Please ensure company and user information has been properly processed.")
-            st.session_state.show_chat = False  # Keep chat input hidden
-    
-    
-
-    # Only allow chat input if conversation has started and choice is made
     if st.session_state.get("show_chat", False):
         display_chat_history()
         handle_user_input(llm, embeddings, company_collection, user_info)
