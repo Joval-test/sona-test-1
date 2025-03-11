@@ -93,8 +93,8 @@ def setup_sidebar(llm,embeddings):
     
     /* Styling for st.button elements */
     [data-testid="stSidebar"] button {
-        background-color: black; 
-        color: white; 
+        background-color: white; 
+        color: #23333D; 
         padding: 10px; 
         border-radius: 5px; 
         font-weight: bold;
@@ -669,6 +669,26 @@ def show_user_data_modal(llm,embeddings):
 
 
 def main():
+    
+    st.markdown("""
+        <style>
+        div.stButton > button {
+            background: linear-gradient(135deg, #23333D, #23333D) !important; /* Smooth gradient */
+            border: 1px solid #253B5C !important; /* Softer border */
+            color: white !important;
+            font-size: 16px !important;
+            padding: 10px 15px !important;
+            border-radius: 8px !important; /* Rounded edges */
+            transition: background 0.3s ease-in-out, transform 0.2s ease-in-out;
+        }
+        div.stButton > button:hover {
+            background: linear-gradient(135deg, #1E3A5F, #BE232F) !important; /* Lighter on hover */
+            transform: scale(1.05); /* Slight zoom effect */
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
+    
     langchain.debug = True
     initialize_session_state()
     llm=initialize_llm_azure()
