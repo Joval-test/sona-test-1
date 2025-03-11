@@ -9,3 +9,4 @@ chroma_storage/
 *.xlsx
 *.ipynb
 *.env
+*.toml
