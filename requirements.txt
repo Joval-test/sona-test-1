@@ -1,9 +1,0 @@
-streamlit
-langchain
-docling
-langchain-docling
-langchain-openai
-langchain-ollama
-langchain-chroma
-streamlit-option-menu
-transformers
