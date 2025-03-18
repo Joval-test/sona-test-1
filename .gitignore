@@ -10,3 +10,4 @@ chroma_storage/
 *.ipynb
 *.env
 *.toml
+caze_bizcon/

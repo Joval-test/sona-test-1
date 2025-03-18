@@ -86,7 +86,7 @@ def render_page():
         </div>
         """
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
-        
+    st.header("LLM Configuration")
     model_options = ["Azure OpenAI", "Llama 3.1", "Phi3.5", "Mistral", "Deepseek"]
     selected_model = st.selectbox("Select LLM Model:", model_options)
     
