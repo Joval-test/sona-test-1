@@ -7,7 +7,7 @@ import azure.cognitiveservices.speech as speechsdk
 from langchain.schema import HumanMessage, AIMessage
 from core.prompts import create_system_message
 from core.vector_store import query_collections
-from apps.admin.utils.user_input import handle_user_input
+from apps.utils.user_input import handle_user_input
 import config
  
 # Load environment variables

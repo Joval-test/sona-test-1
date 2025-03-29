@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from io import BytesIO
 
+
 def classify_lead(email):
     # Get status from selected_users.xlsx
     status_file_path = os.path.join(os.path.dirname(config.REPORT_PATH), "selected_users.xlsx")
@@ -27,9 +28,11 @@ def classify_lead(email):
         st.warning(f"Error reading status file: {e}")
     
     return "Not Responded"
+
 def generate_private_link(user_id):
     base_link=config.BASE_LINK
     return f"http://{base_link}?user={user_id}"
+
 
 def render_page(report_path=None):
     if report_path is None:

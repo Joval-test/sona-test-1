@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 
+
 def render_user_table(data: pd.DataFrame, selectable: bool = True):
     if data is None or data.empty:
         st.warning("No user data available")

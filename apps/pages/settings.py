@@ -6,6 +6,7 @@ from core.vector_store import clear_collections
 import config
 import pandas as pd
 
+
 def setup_company_section():
     st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"])
@@ -23,6 +24,7 @@ def setup_company_section():
         company_urls = st.text_area("Enter company website URLs (one per line):")
         if company_urls and st.button("Process Company URLs"):
             process_company_urls(company_urls)
+
 
 def setup_user_section():
     st.header("User Information")
@@ -47,6 +49,8 @@ def setup_user_section():
     )
     if user_files and st.button("Process User Files"):
         process_user_files(user_files)
+
+
 
 def setup_email_section():
     st.header("Email Configuration")
@@ -74,6 +78,8 @@ def setup_email_section():
                     st.error(f"Failed to save email settings: {str(e)}")
             else:
                 st.error("Please provide both email and password")
+
+
 
 def render_page():
     with open(config.ICON_PATH, "rb") as image_file:

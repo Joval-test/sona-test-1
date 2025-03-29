@@ -4,7 +4,7 @@ import config
 from langchain.schema import SystemMessage,HumanMessage, AIMessage
 from core.vector_store import query_collections
 from core.prompts import create_system_message
-from apps.admin.utils.summary_status import prepare_summary, prepare_status
+from apps.utils.summary_status import prepare_summary, prepare_status
 
 def handle_user_input(llm, embeddings, company_collection, user_info):
     if st.session_state.conversation_ended:

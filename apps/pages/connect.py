@@ -4,13 +4,17 @@ import os
 import uuid
 from datetime import datetime
 import base64
-from apps.admin.utils.email import send_email, prepare_email_message
+from apps.utils.email import send_email, prepare_email_message
 import config
 from core.vector_store import query_collections
+
+
 
 def generate_private_link(user_id):
     base_url = config.BASE_LINK
     return f"{base_url}?user={user_id}"
+
+
 
 def render_page(llm, embeddings):
     

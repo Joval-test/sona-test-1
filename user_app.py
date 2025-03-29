@@ -12,10 +12,10 @@ from core.llm import (
     initialize_embeddings_azure
 )
 from core.vector_store import initialize_collections
-from apps.admin.utils.state import initialize_session_state
-from apps.admin.utils.chat_interface import handle_chat_interface
-from apps.admin.utils.data_loader import load_user_data
-from apps.admin.utils.data_matcher import match_user_data
+from apps.utils.state import initialize_session_state
+from apps.utils.chat_interface import handle_chat_interface
+from apps.utils.data_loader import load_user_data
+from apps.utils.data_matcher import match_user_data
 
 def get_llm_function():
     with open("config.json", "r") as file:
@@ -33,6 +33,8 @@ def get_llm_function():
     if selected_llm in llm_functions:
         return llm_functions[selected_llm]
     raise ValueError(f"Invalid LLM selected: {selected_llm}")
+
+
 
 def main():
     try:
@@ -67,11 +69,6 @@ def main():
         if user_content:
             company_has_docs = len(company_collection.get()['ids']) > 0
             if company_has_docs:
-                # Remove this automatic show_chat setting
-                # if not st.session_state.conversation_started:
-                #     st.session_state.show_chat = True
-                
-                # Only show chat interface if explicitly enabled
                 handle_chat_interface(llm, embeddings, company_collection, user_content)
             else:
                 st.error("Please upload and process at least one company file/URL")

@@ -13,11 +13,11 @@ import config
 from core.llm import initialize_llm_azure, initialize_embeddings_azure
 from core.vector_store import initialize_collections, process_and_store_content
 from core.data_processor import display_file_details
-from apps.admin.utils.state import initialize_session_state
-from apps.admin.utils.email import send_email, prepare_email_message
-from apps.admin.components.header import render_header
-from apps.admin.components.sidebar import render_sidebar
-from apps.admin.pages import connect, report, settings, help
+from apps.utils.state import initialize_session_state
+from apps.utils.email import send_email, prepare_email_message
+from apps.components.header import render_header
+from apps.components.sidebar import render_sidebar
+from apps.pages import connect, report, settings, help
 
 def load_css():
     with open(os.path.join(config.CSS_DIR, "main.css")) as f:

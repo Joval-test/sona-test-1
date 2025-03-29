@@ -1,6 +1,7 @@
 import streamlit as st
 import config
 
+
 def render_sidebar():
     st.sidebar.image(config.LOGO_PATH, width=300)
     st.sidebar.write("")

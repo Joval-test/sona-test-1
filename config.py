@@ -1,10 +1,11 @@
 import os
 from dotenv import load_dotenv
+from langfuse.callback import CallbackHandler
 
 load_dotenv()
 
 AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT")
-AZURE_API_KEY = os.getenv("AZURE_KEY")
+AZURE_API_KEY = os.getenv("AZURE_API_KEY")
 AZURE_API_VERSION = os.getenv("AZURE_API_VERSION")
 AZURE_DEPLOYMENT = os.getenv("AZURE_DEPLOYMENT")
 AZURE_EMBEDDING_DEPLOYMENT = os.getenv("AZURE_EMBEDDING_DEPLOYMENT")
@@ -29,4 +30,10 @@ ICON_PATH = os.path.join(IMAGES_DIR, "icon.png")
 # Data paths
 MASTER_PATH = os.path.join(os.getcwd(), "data", "master_user_data.xlsx")
 REPORT_PATH = os.path.join(os.getcwd(), "data", "selected_users.xlsx")
-BASE_LINK = "http://127.0.0.1:8502/user_app"  # Updated to include the user_app path
+BASE_LINK = "http://127.0.0.1:8502/user_app"  
+
+langfuse_handler = CallbackHandler(
+    public_key="pk-lf-0c73faa3-7ea0-4456-ab09-184daf0bd294",
+    secret_key="sk-lf-4a40463d-febc-4a2b-9f94-28fbef42623a",
+    host="http://13.232.37.146:3000"
+)
