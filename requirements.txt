@@ -7,3 +7,5 @@ langchain-ollama
 langchain-chroma
 streamlit-option-menu
 transformers
+plotly
+azure.cognitiveservices.speech

@@ -1,7 +1,22 @@
 from langchain_core.documents import Document
+from langchain_chroma import Chroma
 import streamlit as st
-from data_processor import *
+import hashlib
 import re
+import config
+
+def calculate_sha256(content):
+    if isinstance(content, str):
+        return hashlib.sha256(content.encode()).hexdigest()
+    return hashlib.sha256(content).hexdigest()
+
+def initialize_collections(embeddings):
+    return Chroma(
+        collection_name="company_info_store",
+        persist_directory=config.PERSIST_DIRECTORY,
+        embedding_function=embeddings,
+        collection_metadata={"hnsw:space": "cosine"}
+    )
 
 def process_and_store_content(content, collection, source_type, source_name):
     content_hash = calculate_sha256(str(content))
@@ -29,7 +44,6 @@ def process_and_store_content(content, collection, source_type, source_name):
                     chunk_ids.append(f"{content_hash}_chunk_{chunk.metadata.get('page_number', 1)}")
                     chunk_documents.append(doc)
                     
-                    
                 collection.add_documents(
                     documents=chunk_documents,
                     ids=chunk_ids
@@ -49,28 +63,19 @@ def query_collections(query_text, company_collection, user_info, embeddings, llm
             embedding=embeddings.embed_query(query_text), k=1
         )
         
-        
         context = {
             "COMPANY INFO": [],
             "USER INFO": []
         }
         
         if company_results and len(company_results) > 0:
-            print("################################THIS IS THE COMPANY RESULTS######################################",company_results)
             for result in company_results:
                 if hasattr(result, "page_content"):
-                    # print("This is the page content of company info extracted from embedding:",result.page_content)
                     context["COMPANY INFO"].append(result.page_content)
-            # print("This is the user info available in query collection: ", user_info)
 
         formatted_context = ""
         if context["COMPANY INFO"]:
             company_info=context["COMPANY INFO"]
-            # response=llm.invoke(f"From this info generate a json with company name, company products (list them with their descriptions) and company extra information do not provide any bookends and do not hallucinate. {company_info}")
-            # response=str(response.content).replace("`","").replace("json","")
-            # clean_text = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL)
-            # # print("####################################################THIS IS THE RESPONSE OF THE JSON THAT WAS ASKED TO MAKE###########################################",clean_text)
-            # print("######################## END OF RESPONSE ################################################")
             formatted_context += "<< COMPANY INFO >>\n" + "\n".join(company_info) + "\n\n <<END OF COMPANY INFO>>\n\n"
         if user_info:
             formatted_context += "<< USER INFO >>\n" + "\n".join(user_info) + "\n\n <<END OF USER INFO>>"
@@ -80,14 +85,11 @@ def query_collections(query_text, company_collection, user_info, embeddings, llm
         st.error(f"Error querying collections: {str(e)}")
         return ""
 
-def clear_collections(company_collection): #add User collection incase we're using vector store
+def clear_collections(company_collection):
     try:
         company_ids = company_collection.get()['ids']
-        # user_ids = user_collection.get()['ids']
-        
         if company_ids:
             company_collection.delete(ids=company_ids)
-            
         return True
     except Exception as e:
         st.error(f"Error clearing collections: {str(e)}")
