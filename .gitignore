@@ -1,13 +1,44 @@
+# Python cache files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Node modules
 node_modules/
+
+# SQLite database
 db.sqlite3
-*.pyc
+
+# Chroma storage
 chroma_storage/
+
+# Binary files
 *.bin
+
+# Excel files
 *.xlsx
+
+# Jupyter notebooks
 *.ipynb
+
+# Environment files
 *.env
+
+# Configuration files
 *.toml
+
+# Static files
+static/css/*.css
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Data files
+data/
+
 caze_bizcon/
