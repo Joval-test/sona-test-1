@@ -31,7 +31,7 @@ chroma_storage/
 static/css/*.css
 
 # Streamlit secrets
-.streamlit/secrets.toml
+# .streamlit/secrets.toml
 
 # Temporary files
 *.tmp
