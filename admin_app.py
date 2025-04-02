@@ -1,8 +1,9 @@
 import streamlit as st
-# Set page config first, before any other Streamlit commands
+import config
+
 st.set_page_config(
     page_title="Caze BizConAI Admin",
-    page_icon="🤖",
+    page_icon=config.ICON_PATH,
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -12,10 +13,7 @@ import os
 import config
 from core.llm import initialize_llm_azure, initialize_embeddings_azure
 from core.vector_store import initialize_collections, process_and_store_content
-from core.data_processor import display_file_details
 from apps.utils.state import initialize_session_state
-from apps.utils.email import send_email, prepare_email_message
-from apps.components.header import render_header
 from apps.components.sidebar import render_sidebar
 from apps.pages import connect, report, settings, help
 

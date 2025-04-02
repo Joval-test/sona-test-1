@@ -6,7 +6,6 @@ from datetime import datetime
 import base64
 from apps.utils.email import send_email, prepare_email_message
 import config
-from core.vector_store import query_collections
 
 
 

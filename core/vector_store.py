@@ -2,7 +2,6 @@ from langchain_core.documents import Document
 from langchain_chroma import Chroma
 import streamlit as st
 import hashlib
-import re
 import config
 
 def calculate_sha256(content):

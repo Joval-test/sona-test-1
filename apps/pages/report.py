@@ -5,7 +5,6 @@ import base64
 from datetime import datetime
 import config
 import plotly.express as px
-import plotly.graph_objects as go
 from io import BytesIO
 
 
@@ -119,12 +118,15 @@ def render_page(report_path=None):
             st.plotly_chart(fig_timeline)
 
         # Lead Selection Controls
-        st.sidebar.header("Lead Selection")
-        if st.sidebar.button("Select All"):
-            st.session_state.selected_report_leads = set(df.index)
-        if st.sidebar.button("Clear Selection"):
-            st.session_state.selected_report_leads.clear()
-        st.sidebar.write(f"Selected: {len(st.session_state.selected_report_leads)} leads")
+        st.header("Lead Selection")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Select All", use_container_width=True):
+                st.session_state.selected_report_leads = set(df.index)
+        with col2:
+            if st.button("Clear Selection", use_container_width=True):
+                st.session_state.selected_report_leads.clear()
+        st.write(f"Selected: {len(st.session_state.selected_report_leads)} leads")
 
         # Lead Classification Tabs
         tabs = st.tabs(["All Leads", "Hot Leads", "Warm Leads", "Cold Leads", "Not Responded"])
