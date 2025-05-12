@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-from langfuse.callback import CallbackHandler
 
 load_dotenv()
 
