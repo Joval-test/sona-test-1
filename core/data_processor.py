@@ -106,7 +106,7 @@ def process_user_files(files):
                     st.error(f"Unsupported file format: {file.name}")
                     continue
 
-                required_columns = ['ID', 'Name', 'Company', 'Email', 'Age', 'Description']
+                required_columns = ['ID', 'Name', 'Company', 'Email', 'Description']
                 if all(col in df.columns for col in required_columns):
                     new_dfs.append((file.name, df))
                     st.session_state["file_processing_log"].append({
@@ -137,7 +137,7 @@ def update_master_file(new_data, source_file):
         
         # Define the desired column order
         column_order = [
-            'ID', 'Name', 'Company', 'Email', 'Age', 'Description', 'source'
+            'ID', 'Name', 'Company', 'Email', 'Description', 'source'
         ]
         
         if os.path.exists(config.MASTER_PATH):

@@ -31,7 +31,6 @@ def format_user_content(user_data):
             f"Name: {user_data['Name']}\n"
             f"Company: {user_data['Company']}\n"
             f"Email: {user_data['Email']}\n"
-            f"Age: {user_data['Age']}\n"
             f"Description: {user_data['Description']}\n"
             f"Source: {user_data['source']}\n"
             f"Connected: {user_data['Connected']}\n"

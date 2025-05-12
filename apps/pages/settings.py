@@ -44,7 +44,7 @@ def setup_user_section():
     user_files = st.file_uploader(
         label="Upload user data files",
         type=['xlsx', 'xls', 'csv'],
-        help="Required columns: ID, Name, Company, Email, Age, Description",
+        help="Required columns: ID, Name, Company, Email, Description",
         accept_multiple_files=True
     )
     if user_files and st.button("Process User Files"):

@@ -13,7 +13,7 @@ def render_user_table(data: pd.DataFrame, selectable: bool = True):
     cols[2].markdown("**Name**")
     cols[3].markdown("**Company**")
     cols[4].markdown("**Email**")
-    cols[5].markdown("**Age**")
+
 
     for index, row in data.iterrows():
         cols = st.columns([0.1, 0.1, 0.2, 0.2, 0.2, 0.1])
@@ -35,4 +35,3 @@ def render_user_table(data: pd.DataFrame, selectable: bool = True):
         cols[2].markdown(row["Name"])
         cols[3].markdown(row["Company"])
         cols[4].markdown(str(row["Email"]))
-        cols[5].markdown(str(row["Age"]))

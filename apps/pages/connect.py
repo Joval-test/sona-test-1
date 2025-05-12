@@ -159,7 +159,7 @@ def render_page(llm, embeddings):
                         else:
                             # Create new DataFrame with required columns
                             report_df = pd.DataFrame(columns=[
-                                'ID', 'Name', 'Company', 'Email', 'Age', 'Description', 
+                                'ID', 'Name', 'Company', 'Email', 'Description', 
                                 'Private Link', 'Sent Date', 'Chat Summary',
                                 'Status (Hot/Warm/Cold/Not Responded)', 'source', 'Connected'  # Added Connected
                             ])
@@ -219,7 +219,6 @@ def render_page(llm, embeddings):
                                             'Name': row['Name'],
                                             'Company': row['Company'],
                                             'Email': row['Email'],
-                                            'Age': row['Age'],
                                             'Description': row['Description'],
                                             'Private Link': private_link,
                                             'Sent Date': datetime.now(),
