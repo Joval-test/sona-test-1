@@ -31,9 +31,3 @@ ICON_PATH = os.path.join(IMAGES_DIR, "icon.png")
 MASTER_PATH = os.path.join(os.getcwd(), "data", "master_user_data.xlsx")
 REPORT_PATH = os.path.join(os.getcwd(), "data", "selected_users.xlsx")
 BASE_LINK = "http://127.0.0.1:8502/user_app"  
-
-langfuse_handler = CallbackHandler(
-    public_key="pk-lf-0c73faa3-7ea0-4456-ab09-184daf0bd294",
-    secret_key="sk-lf-4a40463d-febc-4a2b-9f94-28fbef42623a",
-    host="http://13.232.37.146:3000"
-)
