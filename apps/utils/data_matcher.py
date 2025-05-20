@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=2)
 def match_user_data():
     if st.session_state.user_data_df is None or st.session_state.user_data_df.empty:
         return None
@@ -25,6 +27,7 @@ def match_user_data():
             return format_user_content(user_data)
     return None
 
+@stage_log(stage=2)
 def format_user_content(user_data):
     return (f"Status: {user_data['Status (Hot/Warm/Cold/Not Responded)']}\n"
             f"ID: {user_data['ID']}\n"

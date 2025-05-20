@@ -8,12 +8,15 @@ import pandas as pd
 import os
 import tempfile
 import config
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=2)
 def extract_text_from_pdf(pdf_file):
     loader = DoclingLoader(file_path=pdf_file, export_type=ExportType.MARKDOWN)
     docs = loader.load_and_split()
     return docs
 
+@stage_log(stage=2)
 def extract_text_from_url(url):
     try:
         response = requests.get(url)
@@ -36,6 +39,7 @@ def extract_text_from_url(url):
         st.error(f"Error extracting text from URL: {str(e)}")
         return []
 
+@stage_log(stage=2)
 def process_company_files(files):
     for file in files:
         temp_file = None
@@ -66,6 +70,7 @@ def process_company_files(files):
             if temp_file and os.path.exists(temp_file.name):
                 os.unlink(temp_file.name)
 
+@stage_log(stage=2)
 def process_company_urls(urls):
     for url in urls.split('\n'):
         url = url.strip()
@@ -89,6 +94,7 @@ def process_company_urls(urls):
             except Exception as e:
                 st.error(f"Error processing {url}: {str(e)}")
 
+@stage_log(stage=2)
 def process_user_files(files):
     if not files:
         st.error("No files uploaded!")
@@ -96,6 +102,7 @@ def process_user_files(files):
 
     try:
         new_dfs = []
+        required_columns = ['ID', 'Name', 'Company', 'Email', 'Description']
         for file in files:
             try:
                 if file.name.endswith('.csv'):
@@ -106,16 +113,17 @@ def process_user_files(files):
                     st.error(f"Unsupported file format: {file.name}")
                     continue
 
-                required_columns = ['ID', 'Name', 'Company', 'Email', 'Description']
-                if all(col in df.columns for col in required_columns):
-                    new_dfs.append((file.name, df))
+                # Only keep rows where all required columns are present and non-null
+                valid_rows = df.dropna(subset=required_columns)
+                if not valid_rows.empty:
+                    new_dfs.append((file.name, valid_rows))
                     st.session_state["file_processing_log"].append({
                         "File Name": file.name,
-                        "Leads": len(df),
+                        "Leads": len(valid_rows),
                         "Processed At": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 else:
-                    st.error(f"File {file.name} must contain columns: {', '.join(required_columns)}")
+                    st.error(f"File {file.name} does not contain any complete rows with all required columns: {', '.join(required_columns)}")
             except Exception as e:
                 st.error(f"Error reading file {file.name}: {str(e)}")
 
@@ -129,35 +137,55 @@ def process_user_files(files):
     except Exception as e:
         st.error(f"Unexpected error: {str(e)}")
 
+@stage_log(stage=2)
 def update_master_file(new_data, source_file):
     os.makedirs(os.path.dirname(config.MASTER_PATH), exist_ok=True)
-    
     try:
         new_data['source'] = source_file
-        
+        # Ensure email columns exist in new_data
+        if 'Email Sent' not in new_data.columns:
+            new_data['Email Sent'] = False
+        if 'Email Sent Count' not in new_data.columns:
+            new_data['Email Sent Count'] = 0
+        if 'Last Email Sent' not in new_data.columns:
+            new_data['Last Email Sent'] = pd.NaT
         # Define the desired column order
         column_order = [
-            'ID', 'Name', 'Company', 'Email', 'Description', 'source'
+            'ID', 'Name', 'Company', 'Email', 'Description', 'source', 'Email Sent', 'Email Sent Count', 'Last Email Sent'
         ]
-        
         if os.path.exists(config.MASTER_PATH):
             existing_data = pd.read_excel(config.MASTER_PATH)
+            # Ensure email columns exist in existing_data
+            if 'Email Sent' not in existing_data.columns:
+                existing_data['Email Sent'] = False
+            if 'Email Sent Count' not in existing_data.columns:
+                existing_data['Email Sent Count'] = 0
+            if 'Last Email Sent' not in existing_data.columns:
+                existing_data['Last Email Sent'] = pd.NaT
             combined_df = pd.concat([existing_data, new_data], ignore_index=True)
         else:
             combined_df = new_data
-        
+        combined_df['ID'] = combined_df['ID'].astype(str)
         combined_df = combined_df.drop_duplicates(subset=['ID'], keep='last')
         combined_df = combined_df.sort_values('ID')
-        
-        # Reorder columns
+        # Reorder columns (add missing columns if needed)
+        for col in column_order:
+            if col not in combined_df.columns:
+                if col == 'Email Sent':
+                    combined_df[col] = False
+                elif col == 'Email Sent Count':
+                    combined_df[col] = 0
+                elif col == 'Last Email Sent':
+                    combined_df[col] = pd.NaT
+                else:
+                    combined_df[col] = ''
         combined_df = combined_df[column_order]
-        
         combined_df.to_excel(config.MASTER_PATH, index=False)
         st.session_state.user_data_df = combined_df
-        
     except Exception as e:
         st.error(f"Error updating master file: {str(e)}")
 
+@stage_log(stage=3)
 def display_file_details(collection):
     st.subheader("Uploaded Files")
 

@@ -6,8 +6,9 @@ from datetime import datetime
 import config
 import plotly.express as px
 from io import BytesIO
+from apps.utils.stage_logger import stage_log
 
-
+@stage_log(stage=2)
 def classify_lead(email):
     # Get status from selected_users.xlsx
     status_file_path = os.path.join(os.path.dirname(config.REPORT_PATH), "selected_users.xlsx")
@@ -28,11 +29,12 @@ def classify_lead(email):
     
     return "Not Responded"
 
+@stage_log(stage=2)
 def generate_private_link(user_id):
     base_link=config.BASE_LINK
     return f"http://{base_link}?user={user_id}"
 
-
+@stage_log(stage=1)
 def render_page(report_path=None):
     if report_path is None:
         report_path = config.REPORT_PATH

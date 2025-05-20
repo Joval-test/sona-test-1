@@ -1,6 +1,7 @@
 import azure.cognitiveservices.speech as speechsdk
 from dotenv import load_dotenv
 import os
+from apps.utils.stage_logger import stage_log
 load_dotenv()
 
 
@@ -19,6 +20,7 @@ speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, au
  
 # Function: Text-to-Speech
 
+@stage_log(stage=2)
 def text_to_speech(text):
     speech_synthesis_result = speech_synthesizer.speak_text_async(text).get()
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
@@ -29,6 +31,7 @@ def text_to_speech(text):
  
 # Function: Speech-to-Text
 
+@stage_log(stage=2)
 def speech_to_text():
     audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
     speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)

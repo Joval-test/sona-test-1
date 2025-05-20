@@ -1,7 +1,9 @@
 import streamlit as st
 import config
+from apps.utils.stage_logger import stage_log
 
 
+@stage_log(stage=2)
 def render_sidebar():
     st.sidebar.image(config.LOGO_PATH, width=300)
     st.sidebar.write("")

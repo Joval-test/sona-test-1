@@ -2,7 +2,9 @@ import os
 import pandas as pd
 import streamlit as st
 import config
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=2)
 def load_user_data():
     data_path = config.REPORT_PATH
     if os.path.exists(data_path):

@@ -4,6 +4,7 @@ from email.mime.multipart import MIMEMultipart
 import streamlit as st
 from core.vector_store import query_collections
 from langchain.schema import SystemMessage
+from apps.utils.stage_logger import stage_log
 
 
 
@@ -17,6 +18,7 @@ context_instr = """
         - Do not provide the regards or any best regards
         - End the message content with a prompt to click on this link to have a conversation with us, where i'll provide the link after this content message
 """
+@stage_log(stage=2)
 def create_email_message(context):
     base_instruction = """You are an AI cold calling/texting assistant. Here is the context for our interaction:
 
@@ -26,6 +28,7 @@ def create_email_message(context):
                 """
     return SystemMessage(content=base_instruction.format(context=context) + context_instr)
 
+@stage_log(stage=2)
 def prepare_email_message(company_collection, user_info, llm, embeddings, product_link):
     company_has_docs = len(company_collection.get()['ids']) > 0
     print(user_info)
@@ -39,6 +42,7 @@ def prepare_email_message(company_collection, user_info, llm, embeddings, produc
                 print(response.content)
                 return response.content
 
+@stage_log(stage=1)
 def send_email(sender_email, sender_password, recipient_email, subject, message):
     try:
         msg = MIMEMultipart()

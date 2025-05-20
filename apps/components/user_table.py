@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
+from apps.utils.stage_logger import stage_log
 
 
+@stage_log(stage=2)
 def render_user_table(data: pd.DataFrame, selectable: bool = True):
     if data is None or data.empty:
         st.warning("No user data available")

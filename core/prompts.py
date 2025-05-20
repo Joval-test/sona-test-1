@@ -1,4 +1,5 @@
 from langchain.schema import SystemMessage
+from apps.utils.stage_logger import stage_log
 
 context_instr = '''
 << YOUR TASK >>
@@ -50,6 +51,7 @@ Constraints:
 - If asked about unknown features/solutions, direct to company contact. If you do not have the company's contact information, simply tell the user to get in touch with the company for further details..
 '''
 
+@stage_log(stage=2)
 def create_system_message(context):
     base_instruction = """You are an AI cold calling/texting assistant. Here is the context for our interaction:
 

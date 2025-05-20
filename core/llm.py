@@ -2,7 +2,9 @@ from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 import streamlit as st
 import config
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=1)
 @st.cache_resource
 def initialize_llm_azure():
     return AzureChatOpenAI(
@@ -16,6 +18,7 @@ def initialize_llm_azure():
         max_retries=2
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_embeddings_azure():
     return AzureOpenAIEmbeddings(
@@ -25,6 +28,7 @@ def initialize_embeddings_azure():
         api_key=config.AZURE_API_KEY
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_llm_llama():
     return ChatOllama(
@@ -33,6 +37,7 @@ def initialize_llm_llama():
         temperature=0.1
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_llm_phi():
     return ChatOllama(
@@ -41,6 +46,7 @@ def initialize_llm_phi():
         temperature=0.1
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_llm_mistral():
     return ChatOllama(
@@ -49,6 +55,7 @@ def initialize_llm_mistral():
         temperature=0.1
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_llm_deepseek():
     return ChatOllama(
@@ -57,6 +64,7 @@ def initialize_llm_deepseek():
         temperature=0.0
     )
 
+@stage_log(stage=2)
 @st.cache_resource
 def initialize_embeddings_ollama():
     return OllamaEmbeddings(

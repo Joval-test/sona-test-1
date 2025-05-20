@@ -5,8 +5,10 @@ from core.data_processor import process_company_files, process_company_urls, pro
 from core.vector_store import clear_collections
 import config
 import pandas as pd
+from apps.utils.stage_logger import stage_log
 
 
+@stage_log(stage=2)
 def setup_company_section():
     st.header("Company Information")
     company_source = st.radio("Select company info source:", ["PDF", "URL"])
@@ -26,6 +28,7 @@ def setup_company_section():
             process_company_urls(company_urls)
 
 
+@stage_log(stage=2)
 def setup_user_section():
     st.header("User Information")
     
@@ -51,7 +54,7 @@ def setup_user_section():
         process_user_files(user_files)
 
 
-
+@stage_log(stage=2)
 def setup_email_section():
     st.header("Email Configuration")
     with st.expander("Email Settings"):
@@ -64,8 +67,8 @@ def setup_email_section():
                 secrets_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.streamlit', 'secrets.toml')
                 
                 config_data = """[email]
-                                    sender = "{}"
-                                    password = "{}"
+                                    sender = \"{}\"
+                                    password = \"{}\"
                                     """.format(email, password)
                 
                 try:
@@ -80,7 +83,7 @@ def setup_email_section():
                 st.error("Please provide both email and password")
 
 
-
+@stage_log(stage=1)
 def render_page():
     with open(config.ICON_PATH, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()

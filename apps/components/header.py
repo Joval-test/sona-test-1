@@ -1,7 +1,9 @@
 import streamlit as st
 import base64
 import config
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=2)
 def render_header():
     with open(config.ICON_PATH, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode()

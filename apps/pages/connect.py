@@ -2,19 +2,18 @@ import streamlit as st
 import pandas as pd
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 import base64
 from apps.utils.email import send_email, prepare_email_message
 import config
+from apps.utils.stage_logger import stage_log
 
-
-
+@stage_log(stage=2)
 def generate_private_link(user_id):
     base_url = config.BASE_LINK
     return f"{base_url}?user={user_id}"
 
-
-
+@stage_log(stage=1)
 def render_page(llm, embeddings):
     
     # Display header
@@ -31,8 +30,15 @@ def render_page(llm, embeddings):
         st.markdown(image_and_heading_html, unsafe_allow_html=True)
 
     try:
-        # Load leads from MASTER_PATH
+        if not os.path.exists(config.MASTER_PATH):
+            st.info("No leads found. Please upload the leads in the settings section.")
+            return
         df = pd.read_excel(config.MASTER_PATH)
+        df = df.sort_values('source')  # Sort all leads by source
+        if df.empty:
+            st.info("No leads found. Please upload the leads in the settings section.")
+            return
+        sources = sorted(df['source'].unique())  # Sorted tab order
         
         # Add custom CSS for table styling
         st.markdown("""
@@ -79,9 +85,6 @@ def render_page(llm, embeddings):
         if 'selected_leads' not in st.session_state:
             st.session_state.selected_leads = set()
 
-        # Get unique sources for tabs
-        sources = df['source'].unique()
-        
         # Create tabs for each source
         tabs = st.tabs(sources)
         
@@ -108,7 +111,7 @@ def render_page(llm, embeddings):
 
                 # Custom row display instead of data_editor
                 for idx, row in source_df.iterrows():
-                    col1, col2, col3, col4, col5 = st.columns([0.5, 1, 1.5, 1.5, 3])
+                    col1, col2, col3, col4, col5, col6, col7 = st.columns([0.5, 1, 1.5, 1.5, 3, 1, 1])
                     
                     with col1:
                         if st.checkbox(
@@ -130,42 +133,40 @@ def render_page(llm, embeddings):
                         st.write("", row['Company'])
                     with col5:
                         st.write("", row['Description'])
+                    with col6:
+                        st.write("Sent" if row.get('Email Sent', False) else "Not Sent")
+                    with col7:
+                        st.write(row.get('Email Sent Count', 0))
                 # Update selected leads from this source
                 selected_df = None
                 if st.session_state.selected_leads:
                     selected_df = df.loc[list(st.session_state.selected_leads)]
                 
-                if st.button("Send Email to Selected Leads"):
+                if st.button("Send Email to Selected Leads", key=f"send_email_{source}"):
                     if selected_df is None or selected_df.empty:
                         st.error("Please select at least one lead to send emails.")
                         return
                     try:
                         sender_email = st.secrets["email"]["sender"]
                         sender_password = st.secrets["email"]["password"]
-                        
                         if not sender_email or not sender_password:
                             st.error("Email configuration not found in secrets.toml")
                             return
-                            
                         company_collection = st.session_state.company_collection
-                        
-                        # Initialize report_df with proper structure
                         report_dir = os.path.dirname(config.REPORT_PATH)
                         if not os.path.exists(report_dir):
                             os.makedirs(report_dir)
-                            
                         if os.path.exists(config.REPORT_PATH):
                             report_df = pd.read_excel(config.REPORT_PATH)
                         else:
-                            # Create new DataFrame with required columns
                             report_df = pd.DataFrame(columns=[
                                 'ID', 'Name', 'Company', 'Email', 'Description', 
                                 'Private Link', 'Sent Date', 'Chat Summary',
-                                'Status (Hot/Warm/Cold/Not Responded)', 'source', 'Connected'  # Added Connected
+                                'Status (Hot/Warm/Cold/Not Responded)', 'source', 'Connected'
                             ])
-                            # Save empty DataFrame to create the file
                             report_df.to_excel(config.REPORT_PATH, index=False)
-                        
+                        # --- Update master file for email sent status/count ---
+                        master_df = pd.read_excel(config.MASTER_PATH)
                         for _, row in selected_df.iterrows():
                             # Check if lead already exists in report
                             existing_lead = pd.DataFrame()  # Initialize as empty DataFrame
@@ -202,6 +203,16 @@ def render_page(llm, embeddings):
                             if message_content:
                                 message_content += f"\n\nClick here to chat with us: {private_link}"
                                 
+                                # --- Check cooldown before sending email ---
+                                idx = master_df[master_df['Email'] == row['Email']].index
+                                if not idx.empty:
+                                    last_sent = master_df.loc[idx, 'Last Email Sent'].values[0]
+                                    if pd.notna(last_sent):
+                                        last_sent_time = pd.to_datetime(last_sent)
+                                        if datetime.now() - last_sent_time < timedelta(hours=5):
+                                            st.warning(f"Email already sent to {row['Email']} within the last 5 hours.")
+                                            continue  # Skip sending email
+                                
                                 success = send_email(
                                     sender_email,
                                     sender_password,
@@ -212,6 +223,12 @@ def render_page(llm, embeddings):
                                 
                                 if success:
                                     st.success(f"Email sent to {row['Email']}")
+                                    # Update master file for this email
+                                    if not idx.empty:
+                                        master_df.loc[idx, 'Email Sent'] = True
+                                        master_df.loc[idx, 'Email Sent Count'] = master_df.loc[idx, 'Email Sent Count'].fillna(0) + 1
+                                        master_df.loc[idx, 'Last Email Sent'] = datetime.now()
+                                        master_df.to_excel(config.MASTER_PATH, index=False)
                                     if existing_lead.empty:
                                         # Only add new lead if it doesn't exist
                                         new_lead = {
@@ -242,4 +259,4 @@ def render_page(llm, embeddings):
                         st.error(f"Error sending emails: {str(e)}")
                             
     except Exception as e:
-        st.info(f"No leads found please upload the leads data in the settings option.")
+        st.error(f"An error occurred: {e}")

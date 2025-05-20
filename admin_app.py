@@ -1,5 +1,6 @@
 import streamlit as st
 import config
+from apps.utils.stage_logger import stage_log
 
 st.set_page_config(
     page_title="Caze BizConAI Admin",
@@ -17,10 +18,12 @@ from apps.utils.state import initialize_session_state
 from apps.components.sidebar import render_sidebar
 from apps.pages import connect, report, settings, help
 
+@stage_log(stage=2)
 def load_css():
     with open(os.path.join(config.CSS_DIR, "main.css")) as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+@stage_log(stage=2)
 def initialize_app():
     if "initialized" not in st.session_state:
         langchain.debug = True
@@ -38,6 +41,7 @@ def initialize_app():
     
     return st.session_state.llm, st.session_state.embeddings
 
+@stage_log(stage=2)
 def check_directories():
     required_dirs = [
         config.PERSIST_DIRECTORY,
@@ -53,6 +57,7 @@ def check_directories():
             os.makedirs(directory)
             # st.info(f"Created directory: {directory}")
 
+@stage_log(stage=1)
 def main():
     check_directories()
     load_css()

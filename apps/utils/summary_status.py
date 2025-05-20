@@ -1,7 +1,9 @@
 import pandas as pd
 import streamlit as st
 import config
+from apps.utils.stage_logger import stage_log
 
+@stage_log(stage=2)
 def prepare_summary(llm, prompt, df, user_id):
     try:
         summary = llm.invoke(prompt)
@@ -17,6 +19,7 @@ def prepare_summary(llm, prompt, df, user_id):
         print(f"Error updating summary: {e}")
         return False
 
+@stage_log(stage=2)
 def prepare_status(llm, prompt, df, user_id):
     try:
         status = llm.invoke(prompt)
