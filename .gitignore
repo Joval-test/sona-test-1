@@ -27,11 +27,9 @@ chroma_storage/
 # Configuration files
 *.toml
 
-# Static files
-static/css/*.css
-
-# Streamlit secrets
-# .streamlit/secrets.toml
+# Virtual environment files
+.venv/
+venv/
 
 # Temporary files
 *.tmp
@@ -40,5 +38,3 @@ static/css/*.css
 
 # Data files
 data/
-
-caze_bizcon/
