@@ -1,5 +1,5 @@
 import streamlit as st
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 from shared import config
 st.set_page_config(
     page_title="Caze BizConAI Admin",
@@ -12,9 +12,9 @@ import langchain
 import os
 from shared.core.llm import initialize_llm_azure, initialize_embeddings_azure
 from shared.core.vector_store import initialize_collections, process_and_store_content
-from apps.utils.state import initialize_session_state
-from apps.components.sidebar import render_sidebar
-from apps.pages import connect, report, settings, help
+from components.state import initialize_session_state
+from components.sidebar import render_sidebar
+from tabs import connect, report, settings, help
 
 @stage_log(stage=2)
 def load_css():

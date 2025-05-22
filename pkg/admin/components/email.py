@@ -4,7 +4,7 @@ from email.mime.multipart import MIMEMultipart
 import streamlit as st
 from shared.core.vector_store import query_collections
 from langchain.schema import SystemMessage
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 import os
 from shared import config
 

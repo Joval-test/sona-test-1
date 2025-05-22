@@ -1,5 +1,5 @@
 from langchain.schema import SystemMessage
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 context_instr = '''
 << YOUR TASK >>

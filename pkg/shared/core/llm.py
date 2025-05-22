@@ -2,7 +2,7 @@ from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 import streamlit as st
 from shared import config
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=1)
 @st.cache_resource

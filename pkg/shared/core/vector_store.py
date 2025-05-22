@@ -3,7 +3,7 @@ from langchain_chroma import Chroma
 import streamlit as st
 import hashlib
 from shared import config
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=2)
 def calculate_sha256(content):

@@ -6,7 +6,7 @@ from datetime import datetime
 from shared import config
 import plotly.express as px
 from io import BytesIO
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=2)
 def classify_lead(email):

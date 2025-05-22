@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 
 @stage_log(stage=2)

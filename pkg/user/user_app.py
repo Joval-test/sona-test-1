@@ -11,10 +11,11 @@ from shared.core.llm import (
     initialize_embeddings_azure
 )
 from shared.core.vector_store import initialize_collections
-from apps.utils.state import initialize_session_state
-from apps.utils.chat_interface import handle_chat_interface
-from apps.utils.data_loader import load_user_data
-from apps.utils.data_matcher import match_user_data
+from components.state import initialize_session_state
+from components.chat_interface import handle_chat_interface
+from components.data_loader import load_user_data
+from components.data_matcher import match_user_data
+from components.stage_logger import stage_log
 
 # def get_llm_function():
 #     with open("config.json", "r") as file:
@@ -34,7 +35,7 @@ from apps.utils.data_matcher import match_user_data
 #     raise ValueError(f"Invalid LLM selected: {selected_llm}")
 
 
-
+@stage_log(stage=1)
 def main():
     try:
         initialize_session_state()
@@ -66,7 +67,7 @@ def main():
         user_content = match_user_data()
         
         if user_content:
-            company_has_docs = len(company_collection.get()['ids']) > 0
+            company_has_docs = len(company_collection.get()["ids"]) > 0
             if company_has_docs:
                 handle_chat_interface(llm, embeddings, company_collection, user_content)
             else:

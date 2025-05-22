@@ -4,8 +4,8 @@ from shared import config
 from langchain.schema import SystemMessage,HumanMessage, AIMessage
 from shared.core.vector_store import query_collections
 from shared.core.prompts import create_system_message
-from apps.utils.summary_status import prepare_summary, prepare_status
-from apps.utils.stage_logger import stage_log
+from components.summary_status import prepare_summary, prepare_status
+from components.stage_logger import stage_log
 
 @stage_log(stage=1)
 def handle_user_input(llm, embeddings, company_collection, user_info):

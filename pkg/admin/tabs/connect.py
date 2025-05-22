@@ -4,9 +4,9 @@ import os
 import uuid
 from datetime import datetime, timedelta
 import base64
-from apps.utils.email import send_email, prepare_email_message
+from components.email import send_email, prepare_email_message
 from shared import config
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=2)
 def generate_private_link(user_id):

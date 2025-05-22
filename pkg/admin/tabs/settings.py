@@ -5,7 +5,7 @@ from shared.core.data_processor import process_company_files, process_company_ur
 from shared.core.vector_store import clear_collections
 from shared import config
 import pandas as pd
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 
 @stage_log(stage=2)

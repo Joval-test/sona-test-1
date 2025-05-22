@@ -1,5 +1,5 @@
 import streamlit as st
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=2)
 def initialize_session_state():
@@ -29,6 +29,8 @@ def initialize_session_state():
         st.session_state.company_collection = None
     if 'user_collection' not in st.session_state:
         st.session_state.user_collection = None
+    if 'chat_mode' not in st.session_state:  # Add this line
+        st.session_state.chat_mode = "Text"  # Add this line
     if "file_processing_log" not in st.session_state:
         st.session_state["file_processing_log"] = []
     if 'send_user_data_df' not in st.session_state:

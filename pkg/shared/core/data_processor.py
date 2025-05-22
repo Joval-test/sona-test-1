@@ -8,7 +8,7 @@ import pandas as pd
 import os
 import tempfile
 from shared import config
-from apps.utils.stage_logger import stage_log
+from components.stage_logger import stage_log
 
 @stage_log(stage=2)
 def extract_text_from_pdf(pdf_file):
