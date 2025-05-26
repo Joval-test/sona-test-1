@@ -50,3 +50,4 @@ dist/
 *.build
 *.dist
 .env1
+node_modules/
