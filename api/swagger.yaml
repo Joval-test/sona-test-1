@@ -1,0 +1,519 @@
+openapi: 3.0.0
+info:
+  title: BizCon API
+  version: 1.2.0
+  description: |
+    API for BizCon Admin and User Chat.
+    - User endpoints are public (by UUID).
+    - Admin endpoints require X-API-KEY header.
+servers:
+  - url: http://localhost:5000
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    Lead:
+      type: object
+      properties:
+        id: { type: string, description: "Unique lead/user ID (UUID)" }
+        name: { type: string }
+        company: { type: string }
+        email: { type: string }
+        description: { type: string }
+        source: { type: string }
+        email_sent: { type: boolean }
+        email_sent_count: { type: integer }
+        last_email_sent: { type: string, format: date-time }
+        private_link: { type: string, description: "User's private chat link" }
+        status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
+        chat_summary: { type: string }
+        connected: { type: boolean }
+    ChatMessage:
+      type: object
+      properties:
+        role: { type: string, enum: [user, ai] }
+        message: { type: string }
+        timestamp: { type: string, format: date-time }
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string }
+    SuccessResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+
+paths:
+  /api/upload/company-files:
+    post:
+      summary: Upload company PDF files
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file:
+                          type: string
+                        status:
+                          type: string
+                        error:
+                          type: string
+                          nullable: true
+  /api/upload/company-urls:
+    post:
+      summary: Upload company URLs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                urls:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        status:
+                          type: string
+                        error:
+                          type: string
+                          nullable: true
+  /api/upload/user-files:
+    post:
+      summary: Upload user (leads) files
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        '200':
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file:
+                          type: string
+                        status:
+                          type: string
+                        leads:
+                          type: integer
+                          nullable: true
+                        error:
+                          type: string
+                          nullable: true
+  /api/settings/email:
+    post:
+      summary: Save email settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sender:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Save result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/settings/azure:
+    post:
+      summary: Save Azure settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                api_key:
+                  type: string
+                api_version:
+                  type: string
+                deployment:
+                  type: string
+                embedding_deployment:
+                  type: string
+      responses:
+        '200':
+          description: Save result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/settings/private-link:
+    get:
+      summary: Get private link config
+      responses:
+        '200':
+          description: Private link config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  base:
+                    type: string
+                  path:
+                    type: string
+    post:
+      summary: Save private link config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                base:
+                  type: string
+                path:
+                  type: string
+      responses:
+        '200':
+          description: Save result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/leads:
+    get:
+      summary: Get grouped leads
+      description: Returns all leads grouped by source.
+      responses:
+        '200':
+          description: Grouped leads
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Lead'
+  /api/send_emails:
+    post:
+      summary: Send emails to selected leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lead_ids:
+                  type: array
+                  items: { type: string }
+      responses:
+        '200':
+          description: Send result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        status: { type: string, enum: [sent, error, cooldown, no_content] }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/user_chat/{uuid}:
+    post:
+      summary: User chat endpoint
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+      responses:
+        '200':
+          description: AI chat response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response: { type: string }
+        '404':
+          description: Invalid or expired chat link
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/admin/chat_history/{uuid}:
+    get:
+      summary: Get chat history for a lead (admin)
+      security: [{ ApiKeyAuth: [] }]
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatMessage' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/admin/mark_lead:
+    post:
+      summary: Mark lead status and summary (admin)
+      security: [{ ApiKeyAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uuid: { type: string }
+                status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
+                summary: { type: string }
+                contact: { type: string }
+      responses:
+        '200':
+          description: Mark result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SuccessResponse' }
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/settings:
+    get:
+      summary: Get all settings
+      responses:
+        '200':
+          description: Settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email:
+                    type: object
+                    properties:
+                      sender:
+                        type: string
+                      password:
+                        type: string
+                  azure:
+                    type: object
+                    properties:
+                      endpoint:
+                        type: string
+                      api_key:
+                        type: string
+                      api_version:
+                        type: string
+                      deployment:
+                        type: string
+                      embedding_deployment:
+                        type: string
+  /api/clear-all:
+    post:
+      summary: Clear all data
+      responses:
+        '200':
+          description: Clear result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /api/uploaded-files:
+    get:
+      summary: List uploaded files and leads
+      responses:
+        '200':
+          description: Uploaded files and leads
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  company_files:
+                    type: array
+                    items:
+                      type: string
+                  user_files:
+                    type: array
+                    items:
+                      type: string
+                  leads:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        company:
+                          type: string
+                        email:
+                          type: string
+                        description:
+                          type: string
+                        source:
+                          type: string
+                        email_sent:
+                          type: boolean
+                        email_sent_count:
+                          type: integer
+                        last_email_sent:
+                          type: string
+  /api/report:
+    get:
+      summary: Get lead engagement report
+      description: Returns the full report with all leads, statuses, and private links.
+      responses:
+        '200':
+          description: Report data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leads:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Name: { type: string }
+                        Company: { type: string }
+                        Email: { type: string }
+                        ID: { type: string }
+                        Sent Date: { type: string }
+                        Chat Summary: { type: string }
+                        Private Link: { type: string }
+                        Status: { type: string }
+                        Lead Status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
+        '404':
+          description: No report available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string 

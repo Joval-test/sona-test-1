@@ -1,1 +1,0 @@
-This file contains the api informations about the project.
