@@ -1,8 +1,8 @@
 import os
 import pandas as pd
 import streamlit as st
-from shared import config
-from components.stage_logger import stage_log
+from pkg.shared import config
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=2)
 def load_user_data():

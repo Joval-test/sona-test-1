@@ -2,11 +2,11 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import streamlit as st
-from shared.core.vector_store import query_collections
+from pkg.shared.core.vector_store import query_collections
 from langchain.schema import SystemMessage
-from components.stage_logger import stage_log
+from pkg.shared.core.stage_logger import stage_log
 import os
-from shared import config
+from pkg.shared import config
 
 
 
@@ -34,15 +34,17 @@ def create_email_message(context):
 def prepare_email_message(company_collection, user_info, llm, embeddings, product_link):
     company_has_docs = len(company_collection.get()['ids']) > 0
     print(user_info)
+    if not company_has_docs:
+        st.warning("No company documents found. Cannot generate email content. Please provide company info in the settings.")
+        return None
     if user_info:
-        if company_has_docs:
-            initial_context = query_collections("company information and user information, company information more related to the user information", company_collection, user_info, embeddings, llm)
-            if initial_context:
-                system_message = create_email_message(initial_context)
-                initial_messages = [system_message]
-                response = llm.invoke(initial_messages)
-                print(response.content)
-                return response.content
+        initial_context = query_collections("company information and user information, company information more related to the user information", company_collection, user_info, embeddings, llm)
+        if initial_context:
+            system_message = create_email_message(initial_context)
+            initial_messages = [system_message]
+            response = llm.invoke(initial_messages)
+            print(response.content)
+            return response.content
 
 @stage_log(stage=1)
 def send_email(sender_email, sender_password, recipient_email, subject, message):
@@ -62,4 +64,5 @@ def send_email(sender_email, sender_password, recipient_email, subject, message)
         return True
     except Exception as e:
         st.error(f"Error sending email: {str(e)}")
+        print(f"Error sending email: {str(e)}")
         return False

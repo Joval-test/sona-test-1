@@ -4,13 +4,13 @@ import streamlit as st
 import pandas as pd
 from dotenv import load_dotenv
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from shared.core.prompts import create_system_message
-from shared.core.vector_store import query_collections
-from components.user_input import handle_user_input
-from components.summary_status import prepare_summary, prepare_status
-from shared import config
-from components.stage_logger import stage_log
-from components.speech_utils import text_to_speech, speech_to_text  # Keep import for future use
+from pkg.shared.core.prompts import create_system_message
+from pkg.shared.core.vector_store import query_collections
+from pkg.user.components.user_input import handle_user_input
+from pkg.user.components.summary_status import prepare_summary, prepare_status
+from pkg.shared import config
+from pkg.shared.core.stage_logger import stage_log
+# from pkg.user.components.speech_utils import text_to_speech, speech_to_text  # Keep import for future use
 
 # Load environment variables
 load_dotenv()

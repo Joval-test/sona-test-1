@@ -3,10 +3,10 @@ import pandas as pd
 import os
 import base64
 from datetime import datetime
-from shared import config
-import plotly.express as px
+from pkg.shared import config
+# Remove: import plotly.express as px
 from io import BytesIO
-from components.stage_logger import stage_log
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=2)
 def classify_lead(email):
@@ -108,16 +108,15 @@ def render_page(report_path=None):
             not_responded = len(df[df['Lead Status'] == 'Not Responded'])
             st.metric("Not Responded", not_responded)
 
-
-        # Timeline Analysis
-        st.subheader("Contact Timeline")
-        df['Sent Date'] = pd.to_datetime(df['Sent Date'])
-        timeline_data = df.groupby(df['Sent Date'].dt.date).size().reset_index(name='count')
-        if not timeline_data.empty:
-            fig_timeline = px.line(timeline_data, x='Sent Date', y='count', 
-                                 title="Daily Contact Trend",
-                                 labels={'count': 'Number of Contacts', 'Sent Date': 'Date'})
-            st.plotly_chart(fig_timeline)
+        # Remove the entire Timeline Analysis section:
+        # st.subheader("Contact Timeline")
+        # df['Sent Date'] = pd.to_datetime(df['Sent Date'])
+        # timeline_data = df.groupby(df['Sent Date'].dt.date).size().reset_index(name='count')
+        # if not timeline_data.empty:
+        #     fig_timeline = px.line(timeline_data, x='Sent Date', y='count', 
+        #                          title="Daily Contact Trend",
+        #                          labels={'count': 'Number of Contacts', 'Sent Date': 'Date'})
+        #     st.plotly_chart(fig_timeline)
 
         # Lead Selection Controls
         st.header("Lead Selection")

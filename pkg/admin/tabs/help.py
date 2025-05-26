@@ -1,6 +1,6 @@
 import streamlit as st
-from components.header import render_header  # Changed from relative to absolute import
-from components.stage_logger import stage_log
+from pkg.admin.components.header import render_header  # Changed from relative to absolute import
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=4)
 def render_page():

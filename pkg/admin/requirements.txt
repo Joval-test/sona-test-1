@@ -1,0 +1,8 @@
+streamlit
+langchain
+docling
+langchain-docling
+langchain-openai
+langchain-ollama
+langchain-chroma
+transformers >=4.42.0,<4.43.0

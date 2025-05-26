@@ -4,9 +4,10 @@ import os
 import uuid
 from datetime import datetime, timedelta
 import base64
-from components.email import send_email, prepare_email_message
-from shared import config
-from components.stage_logger import stage_log
+# Change these lines
+from pkg.admin.components.email import send_email, prepare_email_message
+from pkg.shared import config
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=2)
 def generate_private_link(user_id):
@@ -148,8 +149,8 @@ def render_page(llm, embeddings):
                         return
                     try:
                         # Replace the st.secrets usage with environment variables
-                        sender_email = config.EMAIL_SENDER
-                        sender_password = config.EMAIL_PASSWORD
+                        sender_email = st.session_state.get("EMAIL_SENDER", "")
+                        sender_password = st.session_state.get("EMAIL_PASSWORD", "")
                         if not sender_email or not sender_password:
                             st.error("Email credentials not configured. Please set them up in the settings section.")
                             return
@@ -220,6 +221,7 @@ def render_page(llm, embeddings):
                                             st.warning(f"Email already sent to {row['Email']} within the last 5 hours.")
                                             continue  # Skip sending email
                                 
+                                print(f"About to send email to {row['Email']} with sender {sender_email}")
                                 success = send_email(
                                     sender_email,
                                     sender_password,

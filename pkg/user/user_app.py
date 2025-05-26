@@ -1,8 +1,8 @@
 import streamlit as st
 import base64
 import json
-from shared import config
-from shared.core.llm import (
+from pkg.shared import config
+from pkg.shared.core.llm import (
     initialize_llm_azure,
     initialize_llm_llama,
     initialize_llm_phi,
@@ -10,12 +10,12 @@ from shared.core.llm import (
     initialize_llm_deepseek,
     initialize_embeddings_azure
 )
-from shared.core.vector_store import initialize_collections
-from components.state import initialize_session_state
-from components.chat_interface import handle_chat_interface
-from components.data_loader import load_user_data
-from components.data_matcher import match_user_data
-from components.stage_logger import stage_log
+from pkg.shared.core.vector_store import initialize_collections
+from pkg.user.components.state import initialize_session_state
+from pkg.user.components.chat_interface import handle_chat_interface
+from pkg.user.components.data_loader import load_user_data
+from pkg.user.components.data_matcher import match_user_data
+from pkg.shared.core.stage_logger import stage_log
 
 # def get_llm_function():
 #     with open("config.json", "r") as file:

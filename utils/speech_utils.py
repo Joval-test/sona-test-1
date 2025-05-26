@@ -1,24 +1,23 @@
-import azure.cognitiveservices.speech as speechsdk
-from dotenv import load_dotenv
 import os
-from components.stage_logger import stage_log
-load_dotenv()
+from dotenv import load_dotenv
+import azure.cognitiveservices.speech as speechsdk
+from pkg.shared.core.stage_logger import stage_log
 
+# Load environment variables
+load_dotenv()
 
 speech_key = os.getenv("SPEECH_KEY")
 speech_region = os.getenv("SPEECH_REGION")
- 
+
 if not speech_key or not speech_region:
     raise ValueError("Environment variables SPEECH_KEY and SPEECH_REGION are not set correctly.")
- 
+
 # Azure Speech SDK Configurations
 speech_config = speechsdk.SpeechConfig(subscription=speech_key, region=speech_region)
 speech_config.speech_recognition_language = "en-US"
 speech_config.speech_synthesis_voice_name = 'en-US-AvaMultilingualNeural'
 audio_output = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
 speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_output)
- 
-# Function: Text-to-Speech
 
 @stage_log(stage=2)
 def text_to_speech(text):
@@ -28,8 +27,6 @@ def text_to_speech(text):
     elif speech_synthesis_result.reason == speechsdk.ResultReason.Canceled:
         cancellation_details = speech_synthesis_result.cancellation_details
         print(f"Speech synthesis canceled: {cancellation_details.reason}")
- 
-# Function: Speech-to-Text
 
 @stage_log(stage=2)
 def speech_to_text():

@@ -1,17 +1,16 @@
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 import streamlit as st
-from shared import config
-from components.stage_logger import stage_log
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=1)
 @st.cache_resource
 def initialize_llm_azure():
     return AzureChatOpenAI(
-        azure_endpoint=config.AZURE_ENDPOINT,
-        azure_deployment=config.AZURE_DEPLOYMENT,
-        api_version=config.AZURE_API_VERSION,
-        api_key=config.AZURE_API_KEY,
+        azure_endpoint=st.session_state.get("AZURE_ENDPOINT", ""),
+        azure_deployment=st.session_state.get("AZURE_DEPLOYMENT", ""),
+        api_version=st.session_state.get("AZURE_API_VERSION", ""),
+        api_key=st.session_state.get("AZURE_API_KEY", ""),
         temperature=0.1,
         max_tokens=None,
         timeout=None,
@@ -22,10 +21,10 @@ def initialize_llm_azure():
 @st.cache_resource
 def initialize_embeddings_azure():
     return AzureOpenAIEmbeddings(
-        azure_endpoint=config.AZURE_ENDPOINT,
-        azure_deployment=config.AZURE_EMBEDDING_DEPLOYMENT,
-        openai_api_version=config.AZURE_API_VERSION,
-        api_key=config.AZURE_API_KEY
+        azure_endpoint=st.session_state.get("AZURE_ENDPOINT", ""),
+        azure_deployment=st.session_state.get("AZURE_EMBEDDING_DEPLOYMENT", ""),
+        openai_api_version=st.session_state.get("AZURE_API_VERSION", ""),
+        api_key=st.session_state.get("AZURE_API_KEY", "")
     )
 
 @stage_log(stage=2)

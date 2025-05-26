@@ -38,3 +38,15 @@ venv/
 
 # Data files
 data/
+
+# Build files
+build/
+dist/
+
+# IDE files
+.idea/
+.vscode/
+
+*.build
+*.dist
+.env1

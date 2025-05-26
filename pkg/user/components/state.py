@@ -1,5 +1,5 @@
 import streamlit as st
-from components.stage_logger import stage_log
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=2)
 def initialize_session_state():

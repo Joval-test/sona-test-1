@@ -1,6 +1,15 @@
 import streamlit as st
-from components.stage_logger import stage_log
-from shared import config
+import os
+import sys
+
+# Ensure 'pkg' root is added to sys.path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "..", ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from pkg.shared.core.stage_logger import stage_log
+from pkg.shared import config
 st.set_page_config(
     page_title="Caze BizConAI Admin",
     page_icon=config.ICON_PATH,
@@ -10,11 +19,12 @@ st.set_page_config(
 
 import langchain
 import os
-from shared.core.llm import initialize_llm_azure, initialize_embeddings_azure
-from shared.core.vector_store import initialize_collections, process_and_store_content
-from components.state import initialize_session_state
-from components.sidebar import render_sidebar
-from tabs import connect, report, settings, help
+# Change these lines
+from pkg.shared.core.llm import initialize_llm_azure, initialize_embeddings_azure
+from pkg.shared.core.vector_store import initialize_collections, process_and_store_content
+from pkg.admin.components.state import initialize_session_state
+from pkg.admin.components.sidebar import render_sidebar
+from pkg.admin.tabs import connect, report, settings, help
 
 @stage_log(stage=2)
 def load_css():
@@ -59,8 +69,18 @@ def check_directories():
 def main():
     check_directories()
     load_css()
+    # Check for required Azure credentials
+    required_vars = [
+        st.session_state.get("AZURE_ENDPOINT", ""),
+        st.session_state.get("AZURE_API_KEY", ""),
+        st.session_state.get("AZURE_API_VERSION", ""),
+        st.session_state.get("AZURE_DEPLOYMENT", "")
+    ]
+    if not all(required_vars):
+        st.warning("Azure credentials are missing. Please configure them in the Settings page.")
+        settings.render_page()
+        return
     llm, embeddings = initialize_app()
-    
     render_sidebar()
     
     if st.session_state.page == "Connect":

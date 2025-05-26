@@ -1,7 +1,7 @@
 import streamlit as st
 import base64
-from shared import config
-from components.stage_logger import stage_log
+from pkg.shared import config
+from pkg.shared.core.stage_logger import stage_log
 
 @stage_log(stage=2)
 def render_header():
