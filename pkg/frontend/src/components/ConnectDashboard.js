@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-
+import React, { useState, useEffect } from "react";
 
 const styles = {
   container: {
@@ -50,10 +49,9 @@ const styles = {
     width: "100%",
     boxSizing: "border-box",
   },
-  // ── changed from flex to grid so the count column never drifts ──
   headerLine: {
     display: "grid",
-    gridTemplateColumns: "1fr 100px", // Fixed width for count column
+    gridTemplateColumns: "1fr 100px",
     alignItems: "center",
     fontWeight: 700,
     color: "#7A8FA6",
@@ -139,16 +137,15 @@ const styles = {
   },
 };
 
-// Add this function before the component definition
-const getStatusColor = (status) => {
-  const colors = {
-    sent: { bg: "#4CAF50", color: "#fff" },        // Green for sent
-    error: { bg: "#F44336", color: "#fff" },       // Red for errors
-    cooldown: { bg: "#FFA726", color: "#fff" },    // Orange for cooldown
-    no_content: { bg: "#9E9E9E", color: "#fff" },  // Grey for no content
-    default: { bg: "#2A3B4D", color: "#E0E0E0" }   // Default dark blue
-  };
-  return colors[status?.toLowerCase()] || colors.default;
+const getStatusColorByCount = (lead) => {
+  if ((lead.email_count || 0) > 0)
+    return { bg: "#4CAF50", color: "#fff" }; // Green
+  return { bg: "#F44336", color: "#fff" }; // Red
+};
+
+const getStatusText = (lead) => {
+  if ((lead.email_count || 0) > 0) return "Email Sent";
+  return "Email Not Sent";
 };
 
 export default function ConnectDashboard() {
@@ -186,7 +183,6 @@ export default function ConnectDashboard() {
     );
   };
 
-  // Update search handling
   useEffect(() => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
@@ -236,12 +232,28 @@ export default function ConnectDashboard() {
     setSelected({ ...selected, [leadId]: checked });
   };
 
+  // NEW: Check if any lead is selected
+  const anySelected = Object.values(selected).some(Boolean);
+
+  // Helper to map id to name for result message
+  const idToName = {};
+  Object.entries(leadsBySource).forEach(([source, leads]) => {
+    leads.forEach((lead) => {
+      idToName[lead.id] = lead.name;
+    });
+  });
+  if (searchResults.length > 0) {
+    searchResults.forEach((lead) => {
+      idToName[lead.id] = lead.name;
+    });
+  }
+
+  // NEW: Send Email button handler
   const handleSendEmails = async () => {
     setSending(true);
     setResult(null);
     const leadIds = Object.keys(selected)
-      .filter((id) => selected[id])
-      .map(Number);
+      .filter((id) => selected[id]);
 
     const res = await fetch("/api/send_emails", {
       method: "POST",
@@ -252,22 +264,23 @@ export default function ConnectDashboard() {
     const data = await res.json();
     setResult(data);
     setSending(false);
+
+    // Optionally refresh leads if backend updates email_count
+    // setLoading(true);
+    // fetch("/api/leads")
+    //   .then((res) => res.json())
+    //   .then((data) => {
+    //     setLeadsBySource(data);
+    //     setLoading(false);
+    //   });
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      sent: { bg: "#4CAF50", color: "#fff" },
-      error: { bg: "#F44336", color: "#fff" },
-      cooldown: { bg: "#FFA726", color: "#fff" },
-      no_content: { bg: "#9E9E9E", color: "#fff" },
-      default: { bg: "#2A3B4D", color: "#E0E0E0" }
-    };
-    return colors[status?.toLowerCase()] || colors.default;
-  };
+  // Helper: Check if leads are present
+  const leadsPresent = Object.keys(leadsBySource).length > 0 &&
+    Object.values(leadsBySource).some(arr => arr && arr.length > 0);
 
   return (
     <div style={styles.container}>
-      {/* Top bar remains the same */}
       <div style={styles.topBar}>
         <h1 style={styles.header}>Connect Dashboard</h1>
         <div style={styles.searchContainer}>
@@ -281,10 +294,77 @@ export default function ConnectDashboard() {
         </div>
       </div>
 
+      {/* NEW: If no leads, prompt user to go to settings */}
+      {!loading && !leadsPresent && (
+        <div
+          style={{
+            margin: "2rem auto",
+            padding: "2rem",
+            maxWidth: 480,
+            background: "#232323",
+            borderRadius: 12,
+            border: "1px solid #2196F3",
+            color: "#E0E0E0",
+            textAlign: "center",
+          }}
+        >
+          <h2>No leads found</h2>
+          <p>
+            Please go to the <b>Settings</b> page to upload your leads and company files.<br />
+            Once you have uploaded, return here to manage and email your leads.
+          </p>
+        </div>
+      )}
+
+      {/* NEW: Global Send Email Button, right aligned */}
+      {leadsPresent && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+          <button
+            style={{
+              ...styles.actionButton,
+              opacity: anySelected && !sending ? 1 : 0.5,
+              pointerEvents: anySelected && !sending ? "auto" : "none",
+              minWidth: "120px"
+            }}
+            onClick={handleSendEmails}
+            disabled={!anySelected || sending}
+          >
+            {sending ? "Sending..." : "Send Email"}
+          </button>
+        </div>
+      )}
+
+      {/* NEW: Loading Bar */}
+      {sending && (
+        <div style={{
+          width: "100%",
+          background: "#333",
+          borderRadius: "8px",
+          margin: "1rem 0",
+          height: "8px",
+          overflow: "hidden"
+        }}>
+          <div style={{
+            width: "100%",
+            height: "100%",
+            background: "linear-gradient(90deg, #2196F3 40%, #4CAF50 100%)",
+            animation: "loading-bar 1s linear infinite"
+          }} />
+          <style>
+            {`
+              @keyframes loading-bar {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(100%); }
+              }
+            `}
+          </style>
+        </div>
+      )}
+
       {loading && <p>Loading leads…</p>}
 
       {/* Show search results if there's a search term */}
-      {!loading && searchTerm.trim() && (
+      {!loading && leadsPresent && searchTerm.trim() && (
         <div>
           <h2 style={{ color: '#7A8FA6', marginBottom: '1rem' }}>
             Search Results ({searchResults.length})
@@ -305,10 +385,11 @@ export default function ConnectDashboard() {
                 <span
                   style={{
                     ...styles.statusBadge,
-                    ...getStatusColor(lead.email_status),
+                    backgroundColor: getStatusColorByCount(lead).bg,
+                    color: getStatusColorByCount(lead).color,
                   }}
                 >
-                  {lead.email_status || "Not Sent"}
+                  {getStatusText(lead)}
                 </span>
               </div>
             </div>
@@ -317,7 +398,7 @@ export default function ConnectDashboard() {
       )}
 
       {/* Show original source-based view when not searching */}
-      {!loading && !searchTerm.trim() && Object.keys(leadsBySource).length > 0 && (
+      {!loading && leadsPresent && !searchTerm.trim() && Object.keys(leadsBySource).length > 0 && (
         <>
           {Object.entries(leadsBySource).map(([source, leads]) => (
             <div key={source}>
@@ -362,39 +443,36 @@ export default function ConnectDashboard() {
                   </div>
 
                   {/* rows */}
-                  {leads.map((lead) => {
-                    const statusStyle = getStatusColor(lead.email_status);
-                    return (
-                      <div key={lead.id} style={styles.tableRow}>
-                        <div style={styles.tableCell}>
-                          <input
-                            type="checkbox"
-                            checked={selected[lead.id] || false}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              handleCheckbox(lead.id, e.target.checked);
-                            }}
-                            style={{ transform: 'scale(1.2)' }}
-                          />
-                        </div>
-                        <div style={styles.tableCell}><strong>{lead.name}</strong></div>
-                        <div style={styles.tableCell}>{lead.email}</div>
-                        <div style={styles.tableCell}>{lead.company}</div>
-                        <div style={styles.tableCellCenter}>
-                          <span
-                            style={{
-                              ...styles.statusBadge,
-                              backgroundColor: statusStyle.bg,
-                              color: statusStyle.color,
-                            }}
-                          >
-                            {lead.email_status || "Not Sent"}
-                          </span>
-                        </div>
-                        <div style={styles.tableCellCenter}>{lead.email_count || 0}</div>
+                  {leads.map((lead) => (
+                    <div key={lead.id} style={styles.tableRow}>
+                      <div style={styles.tableCell}>
+                        <input
+                          type="checkbox"
+                          checked={selected[lead.id] || false}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleCheckbox(lead.id, e.target.checked);
+                          }}
+                          style={{ transform: 'scale(1.2)' }}
+                        />
                       </div>
-                    );
-                  })}
+                      <div style={styles.tableCell}><strong>{lead.name}</strong></div>
+                      <div style={styles.tableCell}>{lead.email}</div>
+                      <div style={styles.tableCell}>{lead.company}</div>
+                      <div style={styles.tableCellCenter}>
+                        <span
+                          style={{
+                            ...styles.statusBadge,
+                            backgroundColor: getStatusColorByCount(lead).bg,
+                            color: getStatusColorByCount(lead).color,
+                          }}
+                        >
+                          {getStatusText(lead)}
+                        </span>
+                      </div>
+                      <div style={styles.tableCellCenter}>{lead.email_count || 0}</div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -402,8 +480,8 @@ export default function ConnectDashboard() {
         </>
       )}
 
-      {/* Result summary remains the same */}
-      {result && (
+      {/* NEW: Success Message */}
+      {result && !sending && (
         <div
           style={{
             marginTop: '1rem',
@@ -411,10 +489,19 @@ export default function ConnectDashboard() {
             backgroundColor: '#1F1B24',
             borderRadius: '8px',
             border: '1px solid #2196F3',
+            color: '#E0E0E0'
           }}
         >
-          <h3>Email Send Results:</h3>
-          <pre style={{ color: '#E0E0E0' }}>{JSON.stringify(result, null, 2)}</pre>
+          <h3>Emails Sent!</h3>
+          <ul>
+            {result.results.map(r => (
+              <li key={r.id}>
+                {idToName[r.id] || r.id}: <b style={{ color: r.status === "sent" ? "#4CAF50" : "#F44336" }}>
+                  {r.status === "sent" ? "Sent" : "Not Sent"}
+                </b>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

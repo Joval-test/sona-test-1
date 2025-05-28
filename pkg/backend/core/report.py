@@ -24,32 +24,9 @@ def get_report():
         print(f"Error reading report.xlsx: {e}")
         return jsonify({'leads': []})
 
-    required_columns = {
-        'Name': '',
-        'Company': '',
-        'Email': '',
-        'ID': '',
-        'Sent Date': pd.NaT,
-        'Chat Summary': '',
-        'Private Link': '',
-        'Status': 'Not Responded'
-    }
-
-    for col, default in required_columns.items():
-        if col not in df.columns:
-            df[col] = default
-
+    # Remove any processing: just drop duplicates if you want, or even skip that
     df = df.drop_duplicates(subset=['Email'], keep='last')
-    df['Lead Status'] = df['Email'].apply(get_status_for_email)
-
-    if 'Private Link' not in df.columns or df['Private Link'].isna().any():
-        df['Private Link'] = df['ID'].apply(generate_private_link)
-        df.to_excel(report_path, index=False)
-
-    # Replace NaN in Chat Summary with 'no chat summary yet'
-    df['Chat Summary'] = df['Chat Summary'].fillna('no chat summary yet')
-
-    df['Sent Date'] = df['Sent Date'].apply(lambda x: str(x) if pd.notna(x) else '')
-    df = df.where(pd.notnull(df), None)
+    df = df.where(pd.notnull(df), None)  # Replace NaN with None for JSON
 
     return jsonify({'leads': df.to_dict(orient='records')})
+

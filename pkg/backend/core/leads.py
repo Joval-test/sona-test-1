@@ -23,11 +23,13 @@ load_dotenv('.env')
 def get_grouped_leads():
     if not os.path.exists(MASTER_PATH):
         return {}
+
     df = pd.read_excel(MASTER_PATH)
     grouped = {}
+
     for _, row in df.iterrows():
         src = row.get('source', 'Unknown')
-        val = row.get('Email Sent Count', 0)
+        val = row.get('Email Sent Count', row.get('email_count', 0))
         if pd.isna(val):
             val = 0
         lead = {
@@ -37,12 +39,13 @@ def get_grouped_leads():
             'email': row['Email'],
             'description': row['Description'],
             'source': src,
-            'email_sent': bool(row.get('Email Sent', False)),
-            'email_sent_count': int(val),
+            'email_count': row['email_count'],
             'last_email_sent': str(row.get('Last Email Sent', ''))
         }
         grouped.setdefault(src, []).append(lead)
+
     return grouped
+
 
 @stage_log(1)
 def send_emails_to_leads(lead_ids):
@@ -82,7 +85,7 @@ def send_emails_to_leads(lead_ids):
     report_columns = [
         'ID', 'Name', 'Company', 'Email', 'Description',
         'Private Link', 'Sent Date', 'Chat Summary',
-        'Status (Hot/Warm/Cold/Not Responded)', 'source', 'Connected'
+        'Status (Hot/Warm/Cold/Not Responded)', 'source'
     ]
     if os.path.exists(REPORT_PATH):
         report_df = pd.read_excel(REPORT_PATH)
@@ -116,11 +119,12 @@ def send_emails_to_leads(lead_ids):
         # Send email
         success = send_email_real(sender_email, sender_password, row['Email'], "Invitation to Chat with Caze BizConAI", message_content)
         if success:
-            df.at[idx, 'Email Sent'] = True
-            val = row.get('Email Sent Count', 0)
-            if pd.isna(val):
-                val = 0
-            df.at[idx, 'Email Sent Count'] = int(val) + 1
+            # Increment email count
+            if 'Email Sent Count' in df.columns:
+                df.at[idx, 'Email Sent Count'] = int(df.at[idx, 'Email Sent Count'] or 0) + 1
+            elif 'email_count' in df.columns:
+                df.at[idx, 'email_count'] = int(df.at[idx, 'email_count'] or 0) + 1
+
             df.at[idx, 'Last Email Sent'] = now
             # --- REPORT LOGIC ---
             # Check if lead already exists in report

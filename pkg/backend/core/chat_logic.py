@@ -72,11 +72,9 @@ def update_report(uuid, chat_history, llm):
     df = pd.read_excel(REPORT_PATH)
     mask = df['ID'].astype(str) == str(uuid)
     df.loc[mask, 'Chat Summary'] = summary
-    df.loc[mask, 'Status'] = status
-    df.loc[mask, 'Connected'] = True  # Set Connected to True when chat ends
-    df.loc[mask, 'Lead Status'] = status  # Update Lead Status to match Status
+    df.loc[mask, 'Status (Hot/Warm/Cold/Not Responded)'] = status
+    df.loc[mask, 'Connected'] = True
     df.to_excel(REPORT_PATH, index=False)
-    
     return True
 
 def generate_user_chat_response(uuid, chat_history):

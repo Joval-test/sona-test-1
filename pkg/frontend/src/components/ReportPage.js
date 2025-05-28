@@ -231,12 +231,11 @@ export default function ReportPage() {
             <div style={styles.expandedContent}>
               <div><strong>Description:</strong> {lead.Description || "-"}</div>
               <div><strong>Email:</strong> {lead.Email || "-"}</div>
-              <div><strong>Lead Status:</strong> {lead["Lead Status"] || "-"}</div>
               <div><strong>Connected:</strong> {lead.Connected ? "Yes" : "No"}</div>
               <div><strong>Sent Date:</strong> {lead["Sent Date"] || "-"}</div>
               <div><strong>Source:</strong> {lead.source || "-"}</div>
               <div><strong>Chat Summary:</strong> {isNaN(lead["Chat Summary"]) ? lead["Chat Summary"] : "-"}</div>
-              <div><strong>Status:</strong> {lead.Status || "-"}</div>
+              <div><strong>Status:</strong> {lead["Status (Hot/Warm/Cold/Not Responded)"] || "-"}</div>
             </div>
           )}
         </div>

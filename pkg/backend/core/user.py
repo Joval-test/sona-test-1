@@ -37,10 +37,22 @@ def handle_user_files(files):
 
 @stage_log(2)
 def update_master_file(new_data):
+    # Ensure 'email_count' column exists in new_data
+    if 'email_count' not in new_data.columns:
+        new_data['email_count'] = 0
+
     if os.path.exists(MASTER_PATH):
         existing = pd.read_excel(MASTER_PATH)
+        if 'email_count' not in existing.columns:
+            existing['email_count'] = 0
         combined = pd.concat([existing, new_data], ignore_index=True)
         combined = combined.drop_duplicates(subset=['ID'], keep='last')
     else:
         combined = new_data
+
+    # Ensure 'email_count' column exists in combined
+    if 'email_count' not in combined.columns:
+        combined['email_count'] = 0
+
     combined.to_excel(MASTER_PATH, index=False)
+

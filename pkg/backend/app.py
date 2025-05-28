@@ -32,9 +32,9 @@ def restrict_to_localhost(f):
     return decorated
 
 # ---------------  blueprints  ---------------
-app.register_blueprint(user_chat_bp)  # /api/user_chat/...
-app.register_blueprint(admin_bp)      # /api/admin/... (IP restricted inside admin_bp)
-app.register_blueprint(report_bp)     # /api/report/... (IP restricted inside report_bp)
+app.register_blueprint(user_chat_bp)  
+app.register_blueprint(admin_bp)      
+app.register_blueprint(report_bp)     
 
 # ---------------  PUBLIC api with restrictions  ---------------
 @app.route("/api/leads")
