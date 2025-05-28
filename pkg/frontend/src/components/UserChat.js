@@ -40,7 +40,7 @@ const styles = {
   },
   welcomeMessage: {
     textAlign: "center",
-    color: "#7A8FA6",
+    color: "#7A8FA6", // #7A8FA6
     fontSize: "1.2rem",
     padding: "4rem 2rem",
     background: "rgba(31, 27, 36, 0.3)",
@@ -60,8 +60,8 @@ const styles = {
     animation: "fadeIn 0.3s ease"
   },
   userMessage: {
-    backgroundColor: "rgba(255, 99, 71, 0.1)",
-    border: "1px solid rgba(255, 99, 71, 0.2)",
+    backgroundColor: "rgb(64, 136, 224)",
+    border: "1px solid rgba(3, 8, 8, 0.2)",
     marginLeft: "auto",
     flexDirection: "row-reverse"
   },
@@ -100,8 +100,8 @@ const styles = {
     padding: "16px 20px",
     borderRadius: "30px",
     border: "1px solid #2A3B4D",
-    backgroundColor: "#121212",
-    color: "#E0E0E0",
+    backgroundColor: "#121212", // #121212
+    color: "#E0E0E0", // #E0E0E0
     fontSize: "1rem",
     outline: "none",
     transition: "all 0.3s ease",
@@ -113,7 +113,7 @@ const styles = {
     padding: "16px 24px",
     borderRadius: "30px",
     border: "none",
-    background: "linear-gradient(135deg, #FF6347 0%, #FF4500 100%)",
+    background: "linear-gradient(135deg, #4ba7f3 0%, #2196F3 100%)",
     color: "#fff",
     cursor: "pointer",
     fontWeight: "700",
@@ -126,8 +126,8 @@ const styles = {
   },
   errorMessage: {
     padding: "12px 20px",
-    backgroundColor: "rgba(255, 99, 71, 0.1)",
-    border: "1px solid rgba(255, 99, 71, 0.3)",
+    backgroundColor: "rgb(255, 99, 71)",
+    border: "1px solid rgb(69, 183, 249)",
     borderRadius: "12px",
     color: "#FF6347",
     margin: "1rem 2rem",
@@ -152,10 +152,10 @@ function UserChat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);  // Changed to true initially
+  const [isLoading, setIsLoading] = useState(true);  
   const chatEndRef = useRef(null);
 
-  // Add this new useEffect to fetch initial chat history
+
   useEffect(() => {
     const fetchInitialHistory = async () => {
       try {
