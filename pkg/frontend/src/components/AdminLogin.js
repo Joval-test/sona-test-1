@@ -1,98 +1,74 @@
 import React, { useState } from 'react';
-import { Container, Typography, Box, TextField, Button, Alert, createTheme, ThemeProvider, CircularProgress } from '@mui/material';
+import { Typography, Box, TextField, Button, Alert, CircularProgress } from '@mui/material';
 
-// Create a dark theme (can be shared across components)
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    background: {
-      default: '#1a2027',
-      paper: '#2d3748',
+const styles = {
+  container: {
+    backgroundColor: "#121212",
+    minHeight: "100vh",
+    padding: "2rem",
+    color: "#E0E0E0",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  card: {
+    backgroundColor: "#1F1B24",
+    borderRadius: "12px",
+    padding: "2rem",
+    boxShadow: "0 3px 8px rgba(255, 99, 71, 0.3)",
+    maxWidth: "400px",
+    width: "100%",
+  },
+  header: {
+    color: "#7A8FA6",
+    fontSize: "1.8rem",
+    fontWeight: "700",
+    marginBottom: "1.5rem",
+    textAlign: "center",
+  },
+  input: {
+    '& .MuiOutlinedInput-root': {
+      backgroundColor: '#2A3B4D',
+      borderRadius: '8px',
+      '& fieldset': {
+        borderColor: '#444',
+      },
+      '&:hover fieldset': {
+        borderColor: '#FF6347',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#FF6347',
+      },
     },
-    text: {
-      primary: '#e2e8f0',
-      secondary: '#a0aec0',
+    '& .MuiInputLabel-root': {
+      color: '#7A8FA6',
     },
-    primary: {
-      main: '#BE232F', // Caze Labs Red
+    '& .MuiOutlinedInput-input': {
+      color: '#E0E0E0',
     },
-    secondary: {
-      main: '#304654', // Caze Labs Dark Blue
+  },
+  button: {
+    backgroundColor: "#FF6347",
+    border: "none",
+    padding: "0.75rem 1.5rem",
+    borderRadius: "25px",
+    color: "white",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontSize: "1rem",
+    width: "100%",
+    marginTop: "1rem",
+    transition: "all 0.3s ease",
+    '&:hover': {
+      backgroundColor: "#FF4500",
     },
-    error: {
-        main: '#f44336', // Red for error messages
+    '&:disabled': {
+      opacity: 0.7,
+      cursor: 'not-allowed',
     }
-  },
-  typography: {
-    fontFamily: '"Inter", "Segoe UI", Arial, sans-serif',
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          fontWeight: 700,
-          borderRadius: 8,
-          textTransform: 'none',
-          boxShadow: 'none',
-          '\&:hover': {
-            boxShadow: 'none',
-            opacity: 0.9,
-          },
-        },
-        containedPrimary: {
-            background: 'linear-gradient(90deg, #BE232F 60%, #304654 100%)',
-        },
-      },
-    },
-    MuiTextField: {
-        styleOverrides: {
-          root: {
-            '& label': {
-              color: '#a0aec0', // Secondary text color for labels
-            },
-            '& label.Mui-focused': {
-              color: '#BE232F', // Red color when focused
-            },
-            '& .MuiInputBase-input': {
-              color: '#e2e8f0', // Primary text color for input
-            },
-            '& .MuiOutlinedInput-root': {
-              '& fieldset': {
-                borderColor: '#4a5568', // Darker border
-              },
-              '&:hover fieldset': {
-                borderColor: '#a0aec0', // Lighter border on hover
-              },
-              '&.Mui-focused fieldset': {
-                borderColor: '#BE232F', // Red border when focused
-              },
-            },
-          },
-        },
-      },
-    MuiTypography: {
-        styleOverrides: {
-            h2: {
-                marginBottom: '1.5rem',
-                fontWeight: 700,
-                letterSpacing: '-0.5px',
-                color: '#e2e8f0',
-            }
-        }
-    },
-    MuiAlert: {
-        styleOverrides: {
-          root: {
-            backgroundColor: '#304654',
-            color: '#e2e8f0',
-            '.MuiAlert-icon': {
-              color: '#f44336', // Red icon for error
-            },
-          },
-        },
-      },
-  },
-});
+  }
+};
 
 function AdminLogin({ onLogin }) {
   const [key, setKey] = useState('');
@@ -107,37 +83,54 @@ function AdminLogin({ onLogin }) {
       setLoading(false);
       return;
     }
-    // In a real app, you'd send the key to the backend for validation
-    // For this example, we'll just store it in localStorage
-    localStorage.setItem('admin_api_key', key);
-    // Simulate a network request
-    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    try {
+      localStorage.setItem('admin_api_key', key);
+      onLogin();
+    } catch (err) {
+      setError('Login failed');
+    }
     setLoading(false);
-    onLogin();
   };
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <Box sx={{ background: darkTheme.palette.background.default, minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
-        <Box sx={{ maxWidth: 400, width: '100%', padding: 3, borderRadius: 2, bgcolor: darkTheme.palette.background.paper, boxShadow: 3 }}>
-          <Typography variant="h4" component="h2" gutterBottom textAlign="center">Admin Login</Typography>
-          <TextField
-            label="Enter API Key"
-            type="password"
-            value={key}
-            onChange={e => setKey(e.target.value)}
-            fullWidth
-            margin="normal"
-            variant="outlined"
-          />
-          <Button variant="contained" onClick={handleLogin} fullWidth sx={{ marginTop: 2 }} disabled={loading} startIcon={loading ? <CircularProgress size={20} color="inherit" /> : null}>
-            {loading ? 'Logging in...' : 'Login'}
-          </Button>
-          {error && <Alert severity="error" sx={{ marginTop: 2 }}>{error}</Alert>}
-        </Box>
+    <Box sx={styles.container}>
+      <Box sx={styles.card}>
+        <Typography sx={styles.header}>Admin Login</Typography>
+        
+        <TextField
+          label="API Key"
+          type="password"
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          fullWidth
+          sx={styles.input}
+          margin="normal"
+        />
+        
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ 
+              marginTop: '1rem',
+              backgroundColor: 'rgba(244, 67, 54, 0.1)',
+              color: '#E0E0E0'
+            }}
+          >
+            {error}
+          </Alert>
+        )}
+        
+        <Button
+          onClick={handleLogin}
+          disabled={loading}
+          sx={styles.button}
+        >
+          {loading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : 'Login'}
+        </Button>
       </Box>
-    </ThemeProvider>
+    </Box>
   );
 }
 
-export default AdminLogin; 
+export default AdminLogin;

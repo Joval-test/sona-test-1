@@ -1,11 +1,13 @@
 import os
 import pandas as pd
 from core.utils import ensure_data_dir
+from logging_utils import stage_log
 
 DATA_DIR = 'data/user_files'
 MASTER_PATH = 'data/master_leads.xlsx'
 REQUIRED_COLUMNS = ['ID', 'Name', 'Company', 'Email', 'Description']
 
+@stage_log(1)
 def handle_user_files(files):
     ensure_data_dir(DATA_DIR)
     results = []
@@ -33,6 +35,7 @@ def handle_user_files(files):
             results.append({'file': file.filename, 'status': 'error', 'error': str(e)})
     return {'success': True, 'results': results}
 
+@stage_log(2)
 def update_master_file(new_data):
     if os.path.exists(MASTER_PATH):
         existing = pd.read_excel(MASTER_PATH)
@@ -40,4 +43,4 @@ def update_master_file(new_data):
         combined = combined.drop_duplicates(subset=['ID'], keep='last')
     else:
         combined = new_data
-    combined.to_excel(MASTER_PATH, index=False) 
+    combined.to_excel(MASTER_PATH, index=False)

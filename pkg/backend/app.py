@@ -1,111 +1,113 @@
+import os
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
-import os
-import tempfile
-import pandas as pd
-from core.company import handle_company_files, handle_company_urls
-from core.user import handle_user_files
-from core.settings import save_email_settings, save_azure_settings, get_settings, clear_all_data, get_private_link_config, save_private_link_config
-from core.files import get_uploaded_files
-from core.leads import get_grouped_leads, send_emails_to_leads
-from core.user_chat import user_chat_bp
-from core.admin import admin_bp
-from core.report import report_bp
+from functools import wraps
+from logging_utils import stage_log
 
-app = Flask(__name__, static_folder='../frontend/build', static_url_path='/')
-CORS(app)
-app.register_blueprint(user_chat_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(report_bp)
+# ---------------  domain logic  ---------------
+from core.company  import handle_company_files, handle_company_urls
+from core.user     import handle_user_files
+from core.settings import (
+    save_email_settings, save_azure_settings, get_settings,
+    clear_all_data, get_private_link_config, save_private_link_config
+)
+from core.files    import get_uploaded_files
+from core.leads    import get_grouped_leads, send_emails_to_leads
+from core.user_chat import user_chat_bp     #  public
+from core.admin     import admin_bp         #  protected
+from core.report    import report_bp
 
-# Dummy data for leads (replace with Excel reading logic later)
-DUMMY_LEADS = [
-    {"id": 1, "name": "Alice", "company": "Acme Corp", "email": "alice@acme.com", "description": "Lead 1", "source": "Webinar", "email_sent": False, "email_sent_count": 0},
-    {"id": 2, "name": "Bob", "company": "Beta Inc", "email": "bob@beta.com", "description": "Lead 2", "source": "Webinar", "email_sent": True, "email_sent_count": 1},
-    {"id": 3, "name": "Charlie", "company": "Gamma LLC", "email": "charlie@gamma.com", "description": "Lead 3", "source": "Conference", "email_sent": False, "email_sent_count": 0}
-]
+# ---------------  app / conf  ---------------
+app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
+app.config.update(CHATS_DIR="data/chats", REPORT_PATH="data/report.xlsx")
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
-@app.route('/api/admin')
-def admin_api():
-    return jsonify({"message": "Admin endpoint working!"})
+# ---------------  IP restriction decorator  ---------------
+def restrict_to_localhost(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if request.remote_addr != "127.0.0.1":
+            return jsonify({"error": "Access denied"}), 403
+        return f(*args, **kwargs)
+    return decorated
 
-@app.route('/api/user')
-def user_api():
-    return jsonify({"message": "User endpoint working!"})
+# ---------------  blueprints  ---------------
+app.register_blueprint(user_chat_bp)  # /api/user_chat/...
+app.register_blueprint(admin_bp)      # /api/admin/... (IP restricted inside admin_bp)
+app.register_blueprint(report_bp)     # /api/report/... (IP restricted inside report_bp)
 
-@app.route('/api/leads')
+# ---------------  PUBLIC api with restrictions  ---------------
+@app.route("/api/leads")
+@stage_log(2)
+@restrict_to_localhost
 def get_leads():
     return jsonify(get_grouped_leads())
 
-@app.route('/api/send_emails', methods=['POST'])
+@app.route("/api/send_emails", methods=["POST"])
+@stage_log(1)
 def send_emails():
-    data = request.json
-    lead_ids = data.get('lead_ids', [])
-    result = send_emails_to_leads(lead_ids)
-    return jsonify(result)
+    lead_ids = (request.json or {}).get("lead_ids", [])
+    return jsonify(send_emails_to_leads(lead_ids))
 
-@app.route('/api/upload/company-files', methods=['POST'])
+@app.route("/api/upload/company-files", methods=["POST"])
+@stage_log(1)
 def upload_company_files():
-    files = request.files.getlist('files')
-    result = handle_company_files(files)
-    return jsonify(result)
+    return jsonify(handle_company_files(request.files.getlist("files")))
 
-@app.route('/api/upload/company-urls', methods=['POST'])
+@app.route("/api/upload/company-urls", methods=["POST"])
+@stage_log(1)
 def upload_company_urls():
-    urls = request.json.get('urls', [])
-    result = handle_company_urls(urls)
-    return jsonify(result)
+    return jsonify(handle_company_urls(request.json.get("urls", [])))
 
-@app.route('/api/upload/user-files', methods=['POST'])
+@app.route("/api/upload/user-files", methods=["POST"])
+@stage_log(1)
 def upload_user_files():
-    files = request.files.getlist('files')
-    result = handle_user_files(files)
-    return jsonify(result)
+    return jsonify(handle_user_files(request.files.getlist("files")))
 
-@app.route('/api/settings/email', methods=['POST'])
+@app.route("/api/settings/email", methods=["POST"])
+@stage_log(2)
+@restrict_to_localhost
 def api_save_email_settings():
-    data = request.json
-    result = save_email_settings(data)
-    return jsonify(result)
+    return jsonify(save_email_settings(request.json))
 
-@app.route('/api/settings/azure', methods=['POST'])
+@app.route("/api/settings/azure", methods=["POST"])
+@stage_log(2)
+@restrict_to_localhost
 def api_save_azure_settings():
-    data = request.json
-    result = save_azure_settings(data)
-    return jsonify(result)
+    return jsonify(save_azure_settings(request.json))
 
-@app.route('/api/settings', methods=['GET'])
+@app.route("/api/settings", methods=["GET"])
+@stage_log(2)
+@restrict_to_localhost
 def api_get_settings():
-    result = get_settings()
-    return jsonify(result)
+    return jsonify(get_settings())
 
-@app.route('/api/clear-all', methods=['POST'])
+@app.route("/api/clear-all", methods=["POST"])
+@stage_log(1)
 def api_clear_all():
-    result = clear_all_data()
-    return jsonify(result)
+    return jsonify(clear_all_data())
 
-@app.route('/api/uploaded-files', methods=['GET'])
+@app.route("/api/uploaded-files", methods=["GET"])
+@stage_log(2)
 def api_get_uploaded_files():
-    result = get_uploaded_files()
-    return jsonify(result)
+    return jsonify(get_uploaded_files())
 
-@app.route('/api/settings/private-link', methods=['GET'])
-def api_get_private_link():
-    return jsonify(get_private_link_config())
+@app.route("/api/settings/private-link", methods=["GET", "POST"])
+@stage_log(2)
+@restrict_to_localhost
+def api_private_link():
+    if request.method == "GET":
+        return jsonify(get_private_link_config())
+    return jsonify(save_private_link_config(request.json))
 
-@app.route('/api/settings/private-link', methods=['POST'])
-def api_save_private_link():
-    data = request.json
-    return jsonify(save_private_link_config(data))
-
-# Serve React build files in production
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
+# ---------------  REACT SPA  ---------------
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+@stage_log(4)
 def serve_react(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
+    target = os.path.join(app.static_folder, path)
+    return send_from_directory(app.static_folder,
+        path if path and os.path.exists(target) else "index.html")
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

@@ -43,7 +43,7 @@ const darkTheme = createTheme({
           },
         },
         containedPrimary: {
-            background: 'linear-gradient(90deg, #BE232F 60%, #304654 100%)',
+            background: 'linear-gradient(90deg, #BE232F 60%, #1E88E5 100%)',
         },
       },
     },

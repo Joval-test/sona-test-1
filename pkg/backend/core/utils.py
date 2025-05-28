@@ -3,15 +3,20 @@ import shutil
 import requests
 from bs4 import BeautifulSoup
 from langchain_core.documents import Document
+from logging_utils import stage_log
 
+stage_log(1)
 def ensure_data_dir(path):
     os.makedirs(path, exist_ok=True)
 
+stage_log(3)
 def clear_data_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
         os.makedirs(path)
 
+        
+stage_log(1)
 def extract_text_from_url(url):
     response = requests.get(url)
     response.raise_for_status()

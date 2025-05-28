@@ -5,9 +5,11 @@ from langchain_docling.loader import ExportType
 from langchain_core.documents import Document
 from core.vector_store import get_company_collection, process_and_store_content
 from core.utils import ensure_data_dir
+from logging_utils import stage_log
 
 DATA_DIR = 'data/company_files'
 
+@stage_log(1)
 def handle_company_files(files):
     ensure_data_dir(DATA_DIR)
     company_collection = get_company_collection()
@@ -30,6 +32,7 @@ def handle_company_files(files):
             results.append({'file': file.filename, 'status': 'error', 'error': str(e)})
     return {'success': True, 'results': results}
 
+@stage_log(1)
 def handle_company_urls(urls):
     from core.utils import extract_text_from_url
     company_collection = get_company_collection()
@@ -41,4 +44,4 @@ def handle_company_urls(urls):
             results.append({'url': url, 'status': status})
         except Exception as e:
             results.append({'url': url, 'status': 'error', 'error': str(e)})
-    return {'success': True, 'results': results} 
+    return {'success': True, 'results': results}

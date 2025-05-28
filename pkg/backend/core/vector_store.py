@@ -2,6 +2,7 @@ from langchain_core.documents import Document
 from langchain_chroma import Chroma
 import os
 from langchain_openai import AzureOpenAIEmbeddings
+from logging_utils import stage_log
 
 PERSIST_DIRECTORY = 'data/chroma_store'
 
@@ -11,6 +12,7 @@ class FallbackEmbeddings:
     def embed_documents(self, texts):
         return [[0.0] * 384 for _ in texts]
 
+stage_log(1)
 def get_azure_embeddings():
     endpoint = os.environ.get('AZURE_ENDPOINT', '')
     deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
@@ -25,7 +27,7 @@ def get_azure_embeddings():
         )
     else:
         return FallbackEmbeddings()
-
+stage_log(2)
 def get_company_collection():
     embeddings = get_azure_embeddings()
     return Chroma(
@@ -34,7 +36,7 @@ def get_company_collection():
         embedding_function=embeddings,
         collection_metadata={"hnsw:space": "cosine"}
     )
-
+stage_log(2)
 def process_and_store_content(content, collection, source_type, source_name):
     import hashlib
     content_hash = hashlib.sha256(str(content).encode()).hexdigest()
@@ -67,6 +69,7 @@ def process_and_store_content(content, collection, source_type, source_name):
     except Exception as e:
         return f"error: {str(e)}"
 
+stage_log(3)
 def clear_company_collection():
     collection = get_company_collection()
     try:

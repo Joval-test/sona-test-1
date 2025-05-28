@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 import smtplib
 import uuid
 from core.settings import get_private_link_config
+from logging_utils import stage_log
 
 MASTER_PATH = 'data/master_leads.xlsx'
 REPORT_PATH = 'data/report.xlsx'
@@ -18,6 +19,7 @@ PERSIST_DIRECTORY = 'data/chroma_store'
 
 load_dotenv('.env')
 
+@stage_log(2)
 def get_grouped_leads():
     if not os.path.exists(MASTER_PATH):
         return {}
@@ -42,6 +44,7 @@ def get_grouped_leads():
         grouped.setdefault(src, []).append(lead)
     return grouped
 
+@stage_log(1)
 def send_emails_to_leads(lead_ids):
     if not os.path.exists(MASTER_PATH):
         return {'results': [], 'error': 'No leads file found'}
@@ -149,6 +152,7 @@ def send_emails_to_leads(lead_ids):
     df.to_excel(MASTER_PATH, index=False)
     return {'results': results}
 
+@stage_log(1)
 def generate_email_content(company_collection, user_info, llm, embeddings, product_link):
     # Query company info and user info context
     context = query_collections_for_email(company_collection, user_info, embeddings, llm)
@@ -182,6 +186,7 @@ def generate_email_content(company_collection, user_info, llm, embeddings, produ
     print("LLM content:", content)
     return content + f"\n\nClick here to chat with us: {product_link}"
 
+@stage_log(2)
 def query_collections_for_email(company_collection, user_info, embeddings, llm):
     # Use a simple query for now
     query_text = "company information and user information, company information more related to the user information"
@@ -204,6 +209,7 @@ def query_collections_for_email(company_collection, user_info, embeddings, llm):
         print(f"Error querying collections: {str(e)}")
         return None
 
+@stage_log(1)
 def send_email_real(sender_email, sender_password, recipient_email, subject, message):
     try:
         msg = MIMEMultipart()
@@ -221,6 +227,7 @@ def send_email_real(sender_email, sender_password, recipient_email, subject, mes
         print(f"Error sending email: {str(e)}")
         return False
 
+@stage_log(3)
 def get_status_for_email(email):
     status_file_path = os.path.join(os.path.dirname(REPORT_PATH), "selected_users.xlsx")
     status_col = "Status (Hot/Warm/Cold/Not Responded)"
@@ -237,8 +244,9 @@ def get_status_for_email(email):
         pass
     return "Not Responded"
 
+@stage_log(2)
 def generate_private_link(user_id):
     config = get_private_link_config()
     base = config.get('base', 'https://yourapp.com')
     path = config.get('path', '/chat?user=')
-    return f"{base}{path}{user_id}" 
+    return f"{base}{path}{user_id}"

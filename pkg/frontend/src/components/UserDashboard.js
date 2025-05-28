@@ -1,41 +1,28 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Typography, Box, CircularProgress, createTheme, ThemeProvider } from '@mui/material';
+import { Typography, Box, CircularProgress } from '@mui/material';
 
-// Create a dark theme (can be shared across components)
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    background: {
-      default: '#1a2027',
-      paper: '#2d3748',
-    },
-    text: {
-      primary: '#e2e8f0',
-      secondary: '#a0aec0',
-    },
-    primary: {
-      main: '#BE232F', // Caze Labs Red
-    },
-    secondary: {
-      main: '#304654', // Caze Labs Dark Blue
-    },
+const styles = {
+  container: {
+    backgroundColor: "#121212",
+    minHeight: "100vh",
+    padding: "2rem",
+    color: "#E0E0E0",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
-  typography: {
-    fontFamily: '"Inter", "Segoe UI", Arial, sans-serif',
+  header: {
+    color: "#7A8FA6",
+    fontSize: "2rem",
+    fontWeight: "700",
+    marginBottom: "1.5rem",
   },
-  components: {
-    MuiTypography: {
-        styleOverrides: {
-            h2: {
-                marginBottom: '1.5rem',
-                fontWeight: 700,
-                letterSpacing: '-0.5px',
-                color: '#e2e8f0',
-            }
-        }
-    },
-  },
-});
+  card: {
+    backgroundColor: "#1F1B24",
+    borderRadius: "12px",
+    padding: "2rem",
+    boxShadow: "0 3px 8px rgba(255, 99, 71, 0.3)",
+    textAlign: "center",
+  }
+};
 
 function UserDashboard() {
   const [message, setMessage] = useState('');
@@ -55,19 +42,20 @@ function UserDashboard() {
   }, []);
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <Container maxWidth="md" sx={{ background: darkTheme.palette.background.default, minHeight: '100vh', padding: '2rem', color: darkTheme.palette.text.primary }}>
-        <Typography variant="h4" component="h2" gutterBottom>User Dashboard</Typography>
-        <Box>
-          {loading ? (
-            <CircularProgress />
-          ) : (
-            <Typography variant="body1">{message}</Typography>
-          )}
-        </Box>
-      </Container>
-    </ThemeProvider>
+    <Box sx={styles.container}>
+      <Typography sx={styles.header}>User Dashboard</Typography>
+      
+      <Box sx={styles.card}>
+        {loading ? (
+          <CircularProgress sx={{ color: '#FF6347' }} />
+        ) : (
+          <Typography variant="h6" sx={{ color: '#E0E0E0' }}>
+            {message}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   );
 }
 
-export default UserDashboard; 
+export default UserDashboard;

@@ -89,7 +89,6 @@ body {
   background: linear-gradient(120deg, #232c3a 0%, #34425a 100%);
   color: #f7f9fb;
   text-align: center;
-  border-radius: 0 0 2rem 2rem;
   box-shadow: 0 8px 32px rgba(26,77,143,0.10);
 }
 .landing-hero h1 {
@@ -155,12 +154,22 @@ button, .primary-btn {
   transition: background 0.2s, color 0.2s;
   margin-bottom: 0.5rem;
 }
+.card {
+  boxShadow: "0 3px 8px rgba(33, 150, 243, 0.3)"  /* Changed from rgba(255, 99, 71, 0.3) */
+}
+
+/* Update button hover states */
 button:hover, button:focus, .primary-btn:hover, .primary-btn:focus {
-  background: #B32C39;
+  background: #2196F3;  /* Light blue instead of #B32C39 */
   color: #fff;
   outline: none;
 }
 
+/* Update accent colors */
+.leads-box {
+  border: 2px solid #2196F3;  /* Changed from #B32C39 */
+  box-shadow: 0 4px 24px rgba(33, 150, 243, 0.08);  /* Changed from rgba(179,44,57,0.08) */
+}
 .leads-box {
   background: #353f4e;
   border: 2px solid #B32C39;
@@ -181,4 +190,4 @@ button:hover, button:focus, .primary-btn:hover, .primary-btn:focus {
   .main-content {
     padding: 0;
   }
-} 
+}

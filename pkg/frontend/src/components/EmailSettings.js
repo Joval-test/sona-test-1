@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
-import { Container, Typography, Box, TextField, Button, Alert, createTheme, ThemeProvider, CircularProgress } from '@mui/material';
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Alert,
+  createTheme,
+  ThemeProvider,
+  CircularProgress,
+} from '@mui/material';
 
-// Create a dark theme (can be shared across components)
+/* ----------  THEME  ---------- */
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
@@ -14,14 +23,14 @@ const darkTheme = createTheme({
       secondary: '#a0aec0',
     },
     primary: {
-      main: '#BE232F', // Caze Labs Red
+      main: '#1E88E5', // blue for focus rings etc.
     },
     secondary: {
-      main: '#304654', // Caze Labs Dark Blue
+      main: '#304654',
     },
     success: {
-        main: '#4caf50', // Green for success messages
-    }
+      main: '#4caf50',
+    },
   },
   typography: {
     fontFamily: '"Inter", "Segoe UI", Arial, sans-serif',
@@ -33,120 +42,152 @@ const darkTheme = createTheme({
           fontWeight: 700,
           borderRadius: 8,
           textTransform: 'none',
+          padding: '6px 12px',
+          fontSize: '0.9rem',
+          minHeight: '36px',
           boxShadow: 'none',
-          '\&:hover': {
+          '&:hover': {
             boxShadow: 'none',
-            opacity: 0.9,
-          },        },
+            opacity: 0.92,
+          },
+        },
         containedPrimary: {
-            background: 'linear-gradient(90deg, #BE232F 60%, #304654 100%)',
+          background: 'linear-gradient(90deg, #ffffff 0%, #1E88E5 100%)',
+          color: '#102027',
+          '&:hover': {
+            background: 'linear-gradient(90deg, #e0e0e0 0%, #1565C0 100%)',
+          },
         },
       },
     },
     MuiTextField: {
-        styleOverrides: {
-          root: {
-            '& label': {
-              color: '#a0aec0', // Secondary text color for labels
+      styleOverrides: {
+        root: {
+          marginBottom: '1rem',
+          '& label': {
+            color: '#a0aec0',
+          },
+          '& label.Mui-focused': {
+            color: '#1E88E5',
+          },
+          '& .MuiInputBase-input': {
+            color: '#e2e8f0',
+            padding: '10px 12px',
+            fontSize: '0.9rem',
+          },
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: '#4a5568',
             },
-            '& label.Mui-focused': {
-              color: '#BE232F', // Red color when focused
+            '&:hover fieldset': {
+              borderColor: '#a0aec0',
             },
-            '& .MuiInputBase-input': {
-              color: '#e2e8f0', // Primary text color for input
-            },
-            '& .MuiOutlinedInput-root': {
-              '& fieldset': {
-                borderColor: '#4a5568', // Darker border
-              },
-              '&:hover fieldset': {
-                borderColor: '#a0aec0', // Lighter border on hover
-              },
-              '&.Mui-focused fieldset': {
-                borderColor: '#BE232F', // Red border when focused
-              },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1E88E5',
             },
           },
         },
       },
+    },
     MuiTypography: {
-        styleOverrides: {
-            h3: {
-                marginBottom: '1rem',
-                fontWeight: 600,
-                color: '#e2e8f0',
-            }
-        }
+      styleOverrides: {
+        h5: {
+          marginBottom: '1rem',
+          fontWeight: 600,
+          color: '#e2e8f0',
+        },
+      },
     },
     MuiAlert: {
-        styleOverrides: {
-          root: {
-            backgroundColor: '#304654',
-            color: '#e2e8f0',
-            '.MuiAlert-icon': {
-              color: '#4caf50', // Green icon for success
-            },
+      styleOverrides: {
+        root: {
+          backgroundColor: '#304654',
+          color: '#e2e8f0',
+          '.MuiAlert-icon': {
+            color: '#4caf50',
           },
         },
       },
+    },
   },
 });
 
+/* ----------  COMPONENT  ---------- */
 function EmailSettings() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [alertState, setAlertState] = useState({ text: '', severity: 'info' });
+  const [alertInfo, setAlertInfo] = useState({ text: '', severity: 'info' });
   const [saving, setSaving] = useState(false);
 
-  const handleEmailSettings = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setAlertState({ text: '', severity: 'info' });
+    setAlertInfo({ text: '', severity: 'info' });
+
     const res = await fetch('/api/settings/email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sender: email, password })
+      body: JSON.stringify({ sender: email, password }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setAlertState({ text: 'Email settings saved successfully', severity: 'success' });
-    } else {
-      setAlertState({ text: data.message || 'Failed to save email settings', severity: 'error' });
-    }
+
+    setAlertInfo({
+      text: res.ok
+        ? 'Email settings saved successfully'
+        : data.message || 'Failed to save email settings',
+      severity: res.ok ? 'success' : 'error',
+    });
     setSaving(false);
   };
 
   return (
     <ThemeProvider theme={darkTheme}>
-      <Box component="form" onSubmit={handleEmailSettings} sx={{ marginBottom: 3 }}>
-        <Typography variant="h5" component="h3">Email Settings</Typography>
+      <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
+        <Typography variant="h5">Email Settings</Typography>
+
         <TextField
           label="Sender Email"
           type="email"
           placeholder="Enter sender email"
           value={email}
-          onChange={e => setEmail(e.target.value)}
+          onChange={(e) => setEmail(e.target.value)}
           fullWidth
-          margin="normal"
           variant="outlined"
+          size="small"
         />
+
         <TextField
           label="Email Password"
           type="password"
           placeholder="Enter email password"
           value={password}
-          onChange={e => setPassword(e.target.value)}
+          onChange={(e) => setPassword(e.target.value)}
           fullWidth
-          margin="normal"
           variant="outlined"
+          size="small"
         />
-        <Button type="submit" variant="contained" sx={{ marginTop: 3 }} disabled={saving} startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}>
-          {saving ? 'Saving...' : 'Save Email Settings'}
-        </Button>
-        {alertState.text && <Alert severity={alertState.severity} sx={{ marginTop: 2 }}>{alertState.text}</Alert>}
+
+        {/* Right-aligned button */}
+        <Box display="flex" justifyContent="flex-end" mt={2}>
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {saving ? 'Saving…' : 'Save Email Settings'}
+          </Button>
+        </Box>
+
+        {alertInfo.text && (
+          <Alert severity={alertInfo.severity} sx={{ mt: 2 }}>
+            {alertInfo.text}
+          </Alert>
+        )}
       </Box>
     </ThemeProvider>
   );
 }
 
-export default EmailSettings; 
+export default EmailSettings;

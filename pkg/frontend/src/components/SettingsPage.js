@@ -4,99 +4,82 @@ import AzureSettings from './AzureSettings';
 import PrivateLinkSettings from './PrivateLinkSettings';
 import CompanyInfoSettings from './CompanyInfoSettings';
 import LeadsInfoSettings from './LeadsInfoSettings';
-import { Container, Typography, Box, Button, Tabs, Tab, createTheme, ThemeProvider, Alert, CircularProgress } from '@mui/material';
+import { CircularProgress } from '@mui/material';
 
-// Create a dark theme (can be shared across components)
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    background: {
-      default: '#1a2027',
-      paper: '#2d3748',
-    },
-    text: {
-      primary: '#e2e8f0',
-      secondary: '#a0aec0',
-    },
-    primary: {
-      main: '#BE232F', // Caze Labs Red
-    },
-    secondary: {
-      main: '#304654', // Caze Labs Dark Blue
-    },
-    error: {
-      main: '#BE232F',
-    }
+const styles = {
+  container: {
+    backgroundColor: "#121212",
+    minHeight: "100vh",
+    padding: "2rem",
+    color: "#E0E0E0",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
-  typography: {
-    fontFamily: '"Inter", "Segoe UI", Arial, sans-serif',
+  header: {
+    color: "#7A8FA6",
+    fontSize: "2rem",
+    fontWeight: "700",
+    marginBottom: "1.5rem"
   },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          fontWeight: 700,
-          borderRadius: 8,
-          textTransform: 'none',
-          boxShadow: 'none',
-          '\&:hover': {
-            boxShadow: 'none',
-            opacity: 0.9,
-          },
-        },
-        containedPrimary: {
-            background: 'linear-gradient(90deg, #BE232F 60%, #304654 100%)',
-        },
-      },
-    },
-    MuiTab: {
-        styleOverrides: {
-            root: {
-                textTransform: 'none',
-                fontWeight: 700,
-                fontSize: '1rem',
-                color: '#a0aec0',
-                '&.Mui-selected': {
-                    color: '#BE232F',
-                },
-            }
-        }
-    },
-    MuiTabs: {
-        styleOverrides: {
-            indicator: {
-                backgroundColor: '#BE232F',
-            }
-        }
-    },
-    MuiTypography: {
-        styleOverrides: {
-            h2: {
-                marginBottom: '1.5rem',
-                fontWeight: 700,
-                letterSpacing: '-0.5px',
-                color: '#e2e8f0',
-            },
-            h3: {
-                marginBottom: '1rem',
-                fontWeight: 600,
-                color: '#e2e8f0',
-            }
-        }
-    },
-    MuiAlert: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#304654',
-          color: '#e2e8f0',
-          '.MuiAlert-icon': {
-            color: '#BE232F',
-          },
-        },
-      },
-    },
+  tabContainer: {
+    display: "flex",
+    gap: "0.8rem",
+    marginBottom: "2rem",
+    flexWrap: "wrap",
   },
-});
+  tabButton: {
+    padding: "0.5rem 1.2rem",  // Changed to match ReportPage button padding
+    border: "none",
+    borderRadius: "25px",
+    backgroundColor: "#2A3B4D",
+    color: "#E0E0E0",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "0.9rem",  // Changed to match ReportPage button font size
+    transition: "all 0.3s ease",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+  },
+  tabButtonActive: {
+    backgroundColor: "#2196F3", // Changed from #FF6347 to blue
+    color: "#fff",
+    boxShadow: "0 4px 12px rgba(33, 150, 243, 0.4)", // Changed from rgba(255, 99, 71, 0.4) to blue
+    transform: "translateY(-2px)"
+  },
+  contentCard: {
+    backgroundColor: "#1F1B24",
+    borderRadius: "16px",
+    padding: "2rem",
+    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)", // Changed from rgba(255, 99, 71, 0.1) to blue
+    marginBottom: "2rem",
+    border: "1px solid #2A3B4D"
+  },
+  clearSection: {
+    backgroundColor: "#1F1B24",
+    borderRadius: "16px",
+    padding: "2rem",
+    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)", // Changed from rgba(190, 35, 47, 0.1) to blue
+    border: "1px solid #2196F3" // Changed from #BE232F to blue
+  },
+  clearButton: {
+    backgroundColor: "#2196F3", // Changed from #BE232F to blue
+    color: "white",
+    border: "none",
+    padding: "0.8rem 2rem",
+    borderRadius: "25px",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    transition: "all 0.3s ease",
+    marginTop: "1rem"
+  },
+  alertMessage: {
+    backgroundColor: "#304654",
+    color: "#E0E0E0",
+    padding: "1rem 1.5rem",
+    borderRadius: "12px",
+    marginBottom: "1.5rem",
+    border: "1px solid #2196F3" // Changed from #FF6347 to blue
+  }
+};
 
 function SettingsPage() {
   const [tab, setTab] = useState('email');
@@ -112,41 +95,83 @@ function SettingsPage() {
     setClearing(false);
   };
 
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-    setMessage(''); // Clear message when changing tabs
+  const tabs = [
+    { id: 'email', label: 'Email Settings' },
+    { id: 'azure', label: 'Azure Config' },
+    { id: 'private', label: 'Private Links' },
+    { id: 'company', label: 'Company Info' },
+    { id: 'leads', label: 'Leads Data' }
+  ];
+
+  const renderTabContent = () => {
+    switch(tab) {
+      case 'email': return <EmailSettings />;
+      case 'azure': return <AzureSettings />;
+      case 'private': return <PrivateLinkSettings />;
+      case 'company': return <CompanyInfoSettings />;
+      case 'leads': return <LeadsInfoSettings />;
+      default: return <EmailSettings />;
+    }
   };
 
   return (
-    <ThemeProvider theme={darkTheme}>
-      <Container maxWidth="md" sx={{ background: darkTheme.palette.background.default, padding: '2rem', minHeight: '100vh', color: darkTheme.palette.text.primary }}>
-        <Typography variant="h2" component="h2">Settings</Typography>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 3 }}>
-          <Tabs value={tab} onChange={handleTabChange} aria-label="settings tabs">
-            <Tab label="Email" value="email" />
-            <Tab label="Azure" value="azure" />
-            <Tab label="Private Link" value="private" />
-            <Tab label="Company Info" value="company" />
-            <Tab label="Leads Info" value="leads" />
-          </Tabs>
-        </Box>
-        {message && <Alert severity="info" sx={{ marginBottom: 2 }}>{message}</Alert>}
-        <Box>
-          {tab === 'email' && <EmailSettings />}
-          {tab === 'azure' && <AzureSettings />}
-          {tab === 'private' && <PrivateLinkSettings />}
-          {tab === 'company' && <CompanyInfoSettings />}
-          {tab === 'leads' && <LeadsInfoSettings />}
-        </Box>
-        <Box sx={{ marginTop: 4 }}>
-          <Typography variant="h5" component="h3">Clear All Data</Typography>
-          <Button variant="contained" color="error" onClick={handleClearAll} disabled={clearing} startIcon={clearing ? <CircularProgress size={20} color="inherit" /> : null}>
-            {clearing ? 'Clearing...' : 'Clear All'}
-          </Button>
-        </Box>
-      </Container>
-    </ThemeProvider>
+    <div style={styles.container}>
+      <h1 style={styles.header}>Settings</h1>
+      
+      <div style={styles.tabContainer}>
+        {tabs.map((tabItem) => (
+          <button
+            key={tabItem.id}
+            style={{
+              ...styles.tabButton,
+              ...(tab === tabItem.id ? styles.tabButtonActive : {}),
+            }}
+            onClick={() => {
+              setTab(tabItem.id);
+              setMessage('');
+            }}
+          >
+            {tabItem.label}
+          </button>
+        ))}
+      </div>
+
+      {message && (
+        <div style={styles.alertMessage}>
+          {message}
+        </div>
+      )}
+
+      <div style={styles.contentCard}>
+        {renderTabContent()}
+      </div>
+
+      <div style={styles.clearSection}>
+        <h3 style={{ color: '#2196F3', marginBottom: '1rem', fontSize: '1.3rem', fontWeight: '600' }}>Danger Zone</h3>
+        <p style={{ color: '#CCCCCC', marginBottom: '1rem', lineHeight: '1.5' }}>
+          This action will permanently delete all uploaded data, configurations, and chat histories. This cannot be undone.
+        </p>
+        <button
+          style={{
+            ...styles.clearButton,
+            opacity: clearing ? 0.7 : 1,
+            cursor: clearing ? 'not-allowed' : 'pointer'
+          }}
+          onClick={handleClearAll}
+          disabled={clearing}
+        >
+          {clearing ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <CircularProgress size={16} color="inherit" />
+              Clearing...
+            </span>
+          ) : (
+            'Clear All Data'
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
 
-export default SettingsPage; 
+export default SettingsPage;
