@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 
-// Add a new centered table cell style to the styles object
+
 const styles = {
   container: {
     backgroundColor: "#121212",
     minHeight: "100vh",
     padding: "2rem",
     color: "#E0E0E0",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans‑serif",
   },
   topBar: {
-
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -19,7 +18,7 @@ const styles = {
   header: {
     color: "#7A8FA6",
     fontSize: "2.5rem",
-    fontWeight: "700",
+    fontWeight: 700,
     textAlign: "center",
     marginBottom: "1rem",
   },
@@ -51,23 +50,25 @@ const styles = {
     width: "100%",
     boxSizing: "border-box",
   },
+  // ── changed from flex to grid so the count column never drifts ──
   headerLine: {
-    display: "flex",
-    justifyContent: "space-between",
+    display: "grid",
+    gridTemplateColumns: "1fr 100px", // Fixed width for count column
     alignItems: "center",
-    fontWeight: "700",
+    fontWeight: 700,
     color: "#7A8FA6",
     fontSize: "1rem",
     gap: "1rem",
-    flexWrap: "wrap",
     width: "100%",
   },
-  headerItem: {
-    flex: "1 1 auto",
-    whiteSpace: "nowrap",
+  headerTitle: {
     overflow: "hidden",
     textOverflow: "ellipsis",
-    textAlign: "left",
+    whiteSpace: "nowrap",
+  },
+  headerCount: {
+    whiteSpace: "nowrap",
+    justifySelf: "end",
   },
   expandedContent: {
     marginTop: "0.6rem",
@@ -75,7 +76,7 @@ const styles = {
     paddingTop: "0.6rem",
     fontSize: "0.85rem",
     color: "#CCCCCC",
-    lineHeight: "1.3",
+    lineHeight: 1.3,
   },
   actionButton: {
     backgroundColor: "#2196F3",
@@ -83,7 +84,7 @@ const styles = {
     padding: "0.5rem 1rem",
     borderRadius: "20px",
     color: "white",
-    fontWeight: "600",
+    fontWeight: 600,
     cursor: "pointer",
     fontSize: "0.9rem",
     margin: "0.5rem 0.5rem 0.5rem 0",
@@ -93,49 +94,61 @@ const styles = {
     padding: "0.25rem 0.8rem",
     borderRadius: "15px",
     fontSize: "0.85rem",
-    fontWeight: "600",
+    fontWeight: 600,
     whiteSpace: "nowrap",
   },
   tableHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0.75rem 0',
-    borderBottom: '2px solid #2196F3',
-    marginBottom: '0.5rem',
-    fontWeight: 'bold',
-    color: '#2196F3',
-    fontSize: '0.9rem',
+    display: "flex",
+    alignItems: "center",
+    padding: "0.75rem 0",
+    borderBottom: "2px solid #2196F3",
+    marginBottom: "0.5rem",
+    fontWeight: "bold",
+    color: "#2196F3",
+    fontSize: "0.9rem",
   },
   tableRow: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0.5rem 0',
-    borderBottom: '1px solid #333',
-    fontSize: '0.85rem',
+    display: "flex",
+    alignItems: "center",
+    padding: "0.5rem 0",
+    borderBottom: "1px solid #333",
+    fontSize: "0.85rem",
   },
   tableCell: {
-    flex: '1',
-    padding: '0 0.5rem',
-    textAlign: 'left',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    flex: 1,
+    padding: "0 0.5rem",
+    textAlign: "left",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   tableCellCenter: {
-    flex: '1',
-    padding: '0 0.5rem',
-    textAlign: 'center',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    flex: 1,
+    padding: "0 0.5rem",
+    textAlign: "center",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   headerCell: {
-    flex: '1',
-    padding: '0 0.5rem',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    color: '#2196F3',
+    flex: 1,
+    padding: "0 0.5rem",
+    textAlign: "center",
+    fontWeight: "bold",
+    color: "#2196F3",
   },
+};
+
+// Add this function before the component definition
+const getStatusColor = (status) => {
+  const colors = {
+    sent: { bg: "#4CAF50", color: "#fff" },        // Green for sent
+    error: { bg: "#F44336", color: "#fff" },       // Red for errors
+    cooldown: { bg: "#FFA726", color: "#fff" },    // Orange for cooldown
+    no_content: { bg: "#9E9E9E", color: "#fff" },  // Grey for no content
+    default: { bg: "#2A3B4D", color: "#E0E0E0" }   // Default dark blue
+  };
+  return colors[status?.toLowerCase()] || colors.default;
 };
 
 export default function ConnectDashboard() {
@@ -144,25 +157,64 @@ export default function ConnectDashboard() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [expandedSources, setExpandedSources] = useState({});
+  const [searchResults, setSearchResults] = useState([]);
 
   useEffect(() => {
-    fetch('/api/leads')
-      .then(res => res.json())
-      .then(data => {
+    fetch("/api/leads")
+      .then((res) => res.json())
+      .then((data) => {
         setLeadsBySource(data);
         setLoading(false);
       })
-      .catch(err => {
-         console.error('Failed to load leads:', err);
-         setLoading(false);
+      .catch((err) => {
+        console.error("Failed to load leads:", err);
+        setLoading(false);
       });
   }, []);
 
+  const searchableFields = ["name", "email", "company", "phone", "position"];
+
+  const searchMatch = (lead, term) => {
+    if (!term) return false;
+    const searchTerms = term.toLowerCase().split(' ');
+    return searchTerms.every(searchTerm =>
+      searchableFields.some(
+        field => lead[field] && String(lead[field]).toLowerCase().includes(searchTerm)
+      )
+    );
+  };
+
+  // Update search handling
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results = Object.entries(leadsBySource).flatMap(([source, leads]) =>
+      leads
+        .filter(lead => searchMatch(lead, searchTerm.trim()))
+        .map(lead => ({ ...lead, source }))
+    );
+    setSearchResults(results);
+  }, [leadsBySource, searchTerm]);
+
+  const toggleSourceExpand = (source) => {
+    setExpandedSources(prev => ({
+      ...prev,
+      [source]: !prev[source]
+    }));
+  };
+
   const handleSelectAll = (source) => {
     const newSelected = { ...selected };
-    leadsBySource[source].forEach(lead => {
+    const relevantLeads = searchTerm.trim()
+      ? searchResults.filter(lead => lead.source === source)
+      : leadsBySource[source] || [];
+
+    relevantLeads.forEach((lead) => {
       newSelected[lead.id] = true;
     });
     setSelected(newSelected);
@@ -170,7 +222,11 @@ export default function ConnectDashboard() {
 
   const handleClearAll = (source) => {
     const newSelected = { ...selected };
-    leadsBySource[source].forEach(lead => {
+    const relevantLeads = searchTerm.trim()
+      ? searchResults.filter(lead => lead.source === source)
+      : leadsBySource[source] || [];
+
+    relevantLeads.forEach((lead) => {
       newSelected[lead.id] = false;
     });
     setSelected(newSelected);
@@ -183,56 +239,41 @@ export default function ConnectDashboard() {
   const handleSendEmails = async () => {
     setSending(true);
     setResult(null);
-    const leadIds = Object.keys(selected).filter(id => selected[id]).map(Number);
-    const res = await fetch('/api/send_emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_ids: leadIds })
+    const leadIds = Object.keys(selected)
+      .filter((id) => selected[id])
+      .map(Number);
+
+    const res = await fetch("/api/send_emails", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lead_ids: leadIds }),
     });
+
     const data = await res.json();
     setResult(data);
     setSending(false);
   };
 
-  const toggleSourceExpand = (source) => {
-    setExpandedSources(prev => ({
-      ...prev,
-      [source]: !prev[source]
-    }));
-  };
-
   const getStatusColor = (status) => {
     const colors = {
-      'sent': { bg: '#3498db', color: '#fff' },
-      'error': { bg: '#FF6347', color: '#fff' },
-      'cooldown': { bg: '#e67e22', color: '#fff' },
-      'no_content': { bg: '#7A8FA6', color: '#fff' },
-      'default': { bg: '#2A3B4D', color: '#E0E0E0' }
+      sent: { bg: "#4CAF50", color: "#fff" },
+      error: { bg: "#F44336", color: "#fff" },
+      cooldown: { bg: "#FFA726", color: "#fff" },
+      no_content: { bg: "#9E9E9E", color: "#fff" },
+      default: { bg: "#2A3B4D", color: "#E0E0E0" }
     };
-    return colors[status] || colors.default;
-  };
-
-  const filterLeads = (leads) => {
-    if (!leads) return [];
-    
-    return leads.filter(lead => {
-      if (searchTerm && !Object.values(lead).some(value => 
-        String(value).toLowerCase().includes(searchTerm.toLowerCase())
-      )) {
-        return false;
-      }
-      return true;
-    });
+    return colors[status?.toLowerCase()] || colors.default;
   };
 
   return (
     <div style={styles.container}>
+      {/* Top bar remains the same */}
       <div style={styles.topBar}>
         <h1 style={styles.header}>Connect Dashboard</h1>
         <div style={styles.searchContainer}>
           <input
             type="text"
-            placeholder="Search leads..."
+            placeholder="Search by name, company, email..."
             style={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -240,132 +281,138 @@ export default function ConnectDashboard() {
         </div>
       </div>
 
-      {loading && (
-        <p>Loading leads...</p>
+      {loading && <p>Loading leads…</p>}
+
+      {/* Show search results if there's a search term */}
+      {!loading && searchTerm.trim() && (
+        <div>
+          <h2 style={{ color: '#7A8FA6', marginBottom: '1rem' }}>
+            Search Results ({searchResults.length})
+          </h2>
+          {searchResults.map((lead) => (
+            <div key={lead.id} style={styles.card}>
+              <div style={{ ...styles.headerLine, marginBottom: '0.5rem' }}>
+                <div style={styles.headerTitle}>{lead.name}</div>
+                <div style={styles.headerCount}>{lead.source}</div>
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#CCCCCC' }}>
+                <div>Email: {lead.email}</div>
+                <div>Company: {lead.company}</div>
+                {lead.position && <div>Position: {lead.position}</div>}
+                {lead.phone && <div>Phone: {lead.phone}</div>}
+              </div>
+              <div style={{ marginTop: '1rem' }}>
+                <span
+                  style={{
+                    ...styles.statusBadge,
+                    ...getStatusColor(lead.email_status),
+                  }}
+                >
+                  {lead.email_status || "Not Sent"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
-      {!loading && Object.keys(leadsBySource).length === 0 && (
-        <p>No leads found. Please go to Settings → Leads Info Settings to upload lead information.</p>
-      )}
-
-      {!loading && Object.keys(leadsBySource).length > 0 && (
+      {/* Show original source-based view when not searching */}
+      {!loading && !searchTerm.trim() && Object.keys(leadsBySource).length > 0 && (
         <>
           {Object.entries(leadsBySource).map(([source, leads]) => (
             <div key={source}>
-              <div
-                style={styles.card}
-                onClick={() => toggleSourceExpand(source)}
-              >
+              <div style={styles.card} onClick={() => toggleSourceExpand(source)}>
                 <div style={styles.headerLine}>
-                  <div style={styles.headerItem}>
-                    <strong>{source}</strong>
-                  </div>
-                  <div style={styles.headerItem}>
-                    <strong>{leads.length} Leads</strong>
-                  </div>
+                  <div style={styles.headerTitle}>{source}</div>
+                  <div style={styles.headerCount}>{leads.length} Leads</div>
                 </div>
-                <span style={{ color: '#2196F3', fontSize: '1.2rem' }}>
-                    {/* {expandedSources[source] ? '▲' : '▼'} */}
-                  </span>
-                </div>
+              </div>
 
-                {expandedSources[source] && (
-                  <div style={styles.expandedContent}>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <button 
-                        style={styles.actionButton}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectAll(source);
-                        }}
-                      >
-                        Select All
-                      </button>
-                      <button 
-                        style={styles.actionButton}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleClearAll(source);
-                        }}
-                      >
-                        Clear All
-                      </button>
-                      <button 
-                        style={styles.actionButton}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSendEmails();
-                        }}
-                        disabled={sending}
-                      >
-                        {sending ? 'Sending...' : 'Send Selected Emails'}
-                      </button>
-                    </div>
-                    
-                    {/* Add the table header */}
-                    <div style={styles.tableHeader}>
-                      <div style={styles.headerCell}>Select</div>
-                      <div style={styles.headerCell}>Name</div>
-                      <div style={styles.headerCell}>Email</div>
-                      <div style={styles.headerCell}>Company</div>
-                      <div style={styles.headerCell}>Status</div>
-                      <div style={styles.headerCell}>Email Count</div>
-                    </div>
-                    
-                    {filterLeads(leads).map((lead) => {
-                      const statusStyle = getStatusColor(lead.email_status);
-                      return (
-                        <div key={lead.id} style={styles.tableRow}>
-                          <div style={styles.tableCell}>
-                            <input
-                              type="checkbox"
-                              checked={selected[lead.id] || false}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                handleCheckbox(lead.id, e.target.checked);
-                              }}
-                              style={{ transform: 'scale(1.2)' }}
-                            />
-                          </div>
-                          <div style={styles.tableCell}>
-                            <strong>{lead.name}</strong>
-                          </div>
-                          <div style={styles.tableCell}>
-                            {lead.email}
-                          </div>
-                          <div style={styles.tableCell}>
-                            {lead.company}
-                          </div>
-                          <div style={styles.tableCellCenter}>
-                            <span style={{
+              {expandedSources[source] && (
+                <div style={styles.expandedContent}>
+                  <div style={{ marginBottom: '1rem' }}>
+                    <button
+                      style={styles.actionButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectAll(source);
+                      }}
+                    >
+                      Select All
+                    </button>
+                    <button
+                      style={styles.actionButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClearAll(source);
+                      }}
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {/* table header */}
+                  <div style={styles.tableHeader}>
+                    <div style={styles.headerCell}>Select</div>
+                    <div style={styles.headerCell}>Name</div>
+                    <div style={styles.headerCell}>Email</div>
+                    <div style={styles.headerCell}>Company</div>
+                    <div style={styles.headerCell}>Status</div>
+                    <div style={styles.headerCell}>Email Count</div>
+                  </div>
+
+                  {/* rows */}
+                  {leads.map((lead) => {
+                    const statusStyle = getStatusColor(lead.email_status);
+                    return (
+                      <div key={lead.id} style={styles.tableRow}>
+                        <div style={styles.tableCell}>
+                          <input
+                            type="checkbox"
+                            checked={selected[lead.id] || false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleCheckbox(lead.id, e.target.checked);
+                            }}
+                            style={{ transform: 'scale(1.2)' }}
+                          />
+                        </div>
+                        <div style={styles.tableCell}><strong>{lead.name}</strong></div>
+                        <div style={styles.tableCell}>{lead.email}</div>
+                        <div style={styles.tableCell}>{lead.company}</div>
+                        <div style={styles.tableCellCenter}>
+                          <span
+                            style={{
                               ...styles.statusBadge,
                               backgroundColor: statusStyle.bg,
-                              color: statusStyle.color
-                            }}>
-                              {lead.email_status || 'Not Sent'}
-                            </span>
-                          </div>
-                          <div style={styles.tableCellCenter}>
-                            {lead.email_count || 0}
-                          </div>
+                              color: statusStyle.color,
+                            }}
+                          >
+                            {lead.email_status || "Not Sent"}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                        <div style={styles.tableCellCenter}>{lead.email_count || 0}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           ))}
         </>
       )}
 
+      {/* Result summary remains the same */}
       {result && (
-        <div style={{ 
-          marginTop: '1rem', 
-          padding: '1rem', 
-          backgroundColor: '#1F1B24', 
-          borderRadius: '8px',
-          border: '1px solid #2196F3'
-        }}>
+        <div
+          style={{
+            marginTop: '1rem',
+            padding: '1rem',
+            backgroundColor: '#1F1B24',
+            borderRadius: '8px',
+            border: '1px solid #2196F3',
+          }}
+        >
           <h3>Email Send Results:</h3>
           <pre style={{ color: '#E0E0E0' }}>{JSON.stringify(result, null, 2)}</pre>
         </div>
@@ -373,5 +420,3 @@ export default function ConnectDashboard() {
     </div>
   );
 }
-
-// export default ConnectDashboard;
