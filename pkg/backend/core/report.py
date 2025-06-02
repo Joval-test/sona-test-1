@@ -28,5 +28,12 @@ def get_report():
     df = df.drop_duplicates(subset=['Email'], keep='last')
     df = df.where(pd.notnull(df), None)  # Replace NaN with None for JSON
 
-    return jsonify({'leads': df.to_dict(orient='records')})
+    # Ensure all NaN are replaced with None for JSON serialization
+    leads = df.to_dict(orient='records')
+    for lead in leads:
+        for k, v in lead.items():
+            if isinstance(v, float) and pd.isna(v):
+                lead[k] = None
+
+    return jsonify({'leads': leads})
 

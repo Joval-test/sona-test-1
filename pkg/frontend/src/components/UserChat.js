@@ -1,23 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Person, SmartToy } from '@mui/icons-material';
+import ReactMarkdown from 'react-markdown';
 
 const styles = {
   container: {
     backgroundColor: "#121212",
     minHeight: "100vh",
+    width: "100vw",
     display: "flex",
     flexDirection: "column",
+    alignItems: "center",
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    position: "relative"
   },
   header: {
+    width: "100vw",
     background: "linear-gradient(135deg, #1F1B24 0%, #2A3B4D 100%)",
-    padding: "1rem 2rem",
-    borderBottom: "1px solid rgba(255, 99, 71, 0.2)",
+    padding: "1.2rem 2rem",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.3)"
+    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    position: "fixed", // changed from "sticky"
+    top: 0,
+    left: 0,
+    zIndex: 100,
   },
   headerTitle: {
     color: "#E0E0E0",
@@ -25,93 +31,114 @@ const styles = {
     fontWeight: "700",
     margin: 0
   },
-  chatContainer: {
+  chatArea: {
     flex: 1,
+    width: "100vw",
     display: "flex",
     flexDirection: "column",
-    maxHeight: "calc(100vh - 80px)",
-    padding: "0"
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: "110px",
+    paddingTop: "96px", // adjust to header height
+    overflow: "auto"
   },
   messagesArea: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "2rem",
-    background: "#121212"
-  },
-  welcomeMessage: {
-    textAlign: "center",
-    color: "#7A8FA6", // #7A8FA6
-    fontSize: "1.2rem",
-    padding: "4rem 2rem",
-    background: "rgba(31, 27, 36, 0.3)",
-    borderRadius: "16px",
-    margin: "2rem auto",
-    maxWidth: "600px",
-    border: "1px solid rgba(255, 99, 71, 0.1)"
+    width: "100%",
+    maxWidth: "820px", // wider like Claude
+    margin: "0 auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.5rem",
+    padding: "0 24px",
   },
   message: {
     display: "flex",
     alignItems: "flex-start",
-    gap: "16px",
-    marginBottom: "1.5rem",
-    padding: "16px",
+    gap: "14px",
+    padding: "18px 24px",
     borderRadius: "16px",
-    maxWidth: "85%",
-    animation: "fadeIn 0.3s ease"
+    maxWidth: "75%", // limit width for each message bubble
+    wordBreak: "break-word",
+    background: "rgba(36, 40, 47, 0.85)",
+    fontSize: "1.1rem",
+    lineHeight: 1.7,
+    marginBottom: "1.5rem",
   },
   userMessage: {
-    backgroundColor: "rgb(64, 136, 224)",
-    border: "1px solid rgba(3, 8, 8, 0.2)",
-    marginLeft: "auto",
-    flexDirection: "row-reverse"
+    backgroundColor: "#3a8dde",
+    color: "#fff",
+    alignSelf: "flex-end",
+    flexDirection: "row-reverse",
+    marginLeft: "auto",   // push to right
+    marginRight: "0",
+    textAlign: "right",
   },
   aiMessage: {
-    backgroundColor: "rgba(31, 27, 36, 0.8)",
-    border: "1px solid #2A3B4D"
+    backgroundColor: "#23272f",
+    color: "#E0E0E0",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    marginRight: "auto",  // push to left
+    marginLeft: "0",
+    textAlign: "left",
   },
   loadingMessage: {
-    backgroundColor: "rgba(31, 27, 36, 0.8)",
-    border: "1px solid #2A3B4D",
+    backgroundColor: "#23272f",
+    border: "none",
     display: "flex",
     alignItems: "flex-start",
-    gap: "16px",
-    marginBottom: "1.5rem",
-    padding: "16px",
+    gap: "14px",
+    padding: "18px 24px",
     borderRadius: "16px",
-    maxWidth: "85%",
-    animation: "pulse 1.5s ease-in-out infinite"
+    maxWidth: "100%",
+    animation: "pulse 1.5s ease-in-out infinite",
+    margin: "0 auto",
   },
   loadingDots: {
     display: "inline-block",
     color: "#7A8FA6",
     animation: "loadingDots 1.5s infinite"
   },
-  inputArea: {
-    background: "linear-gradient(135deg, #1F1B24 0%, #2A3B4D 100%)",
-    padding: "1.5rem 2rem",
-    borderTop: "1px solid rgba(255, 99, 71, 0.2)",
+  inputBarWrapper: {
+    width: "100vw",
     display: "flex",
-    gap: "16px",
+    justifyContent: "center",
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    background: "rgba(18,18,18,0.95)",
+    padding: "24px 0 16px 0",
+    zIndex: 20,
+    borderTop: "1px solid #23272f"
+  },
+  inputArea: {
+    width: "100%",
+    maxWidth: "820px",
+    display: "flex",
+    gap: "14px",
     alignItems: "center",
-    boxShadow: "0 -2px 8px rgba(0,0,0,0.3)"
+    background: "#23272f",
+    borderRadius: "24px",
+    padding: "10px 18px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.03)"
   },
   input: {
     flex: 1,
-    padding: "16px 20px",
-    borderRadius: "30px",
-    border: "1px solid #2A3B4D",
-    backgroundColor: "#121212", // #121212
-    color: "#E0E0E0", // #E0E0E0
-    fontSize: "1rem",
+    padding: "14px 18px",
+    borderRadius: "18px",
+    border: "none",
+    backgroundColor: "#181818",
+    color: "#E0E0E0",
+    fontSize: "1.1rem",
     outline: "none",
     transition: "all 0.3s ease",
     resize: "none",
-    minHeight: "20px",
+    minHeight: "24px",
     maxHeight: "120px"
   },
   sendButton: {
-    padding: "16px 24px",
-    borderRadius: "30px",
+    padding: "12px 24px",
+    borderRadius: "18px",
     border: "none",
     background: "linear-gradient(135deg, #4ba7f3 0%, #2196F3 100%)",
     color: "#fff",
@@ -121,17 +148,18 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     transition: "all 0.3s ease",
-    fontSize: "1rem",
-    boxShadow: "0 4px 12px rgba(255, 99, 71, 0.3)"
+    fontSize: "1.1rem",
+    boxShadow: "0 4px 12px rgba(255, 99, 71, 0.08)"
   },
   errorMessage: {
     padding: "12px 20px",
     backgroundColor: "rgb(255, 99, 71)",
-    border: "1px solid rgb(69, 183, 249)",
+    border: "none",
     borderRadius: "12px",
     color: "#FF6347",
-    margin: "1rem 2rem",
-    textAlign: "center"
+    margin: "1rem auto",
+    textAlign: "center",
+    maxWidth: "600px"
   },
   "@keyframes loadingDots": {
     "0%": { content: "." },
@@ -228,16 +256,26 @@ function UserChat() {
     }
   };
 
+  function AnimatedDots() {
+    const [dots, setDots] = React.useState('');
+    React.useEffect(() => {
+      const interval = setInterval(() => {
+        setDots(d => (d.length < 3 ? d + '.' : ''));
+      }, 400);
+      return () => clearInterval(interval);
+    }, []);
+    return <span>{dots}</span>;
+  }
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.headerTitle}>Chat with Caze Representative</h1>
       </div>
-      
-      <div style={styles.chatContainer}>
+      <div style={styles.chatArea}>
         <div style={styles.messagesArea}>
           {messages.length === 0 && (
-            <div style={styles.welcomeMessage}>
+            <div style={{ ...styles.message, background: "rgba(31, 27, 36, 0.15)", color: "#7A8FA6", textAlign: "center" }}>
               Welcome! How can I assist you today?
             </div>
           )}
@@ -250,27 +288,57 @@ function UserChat() {
               }}
             >
               {msg.role === 'user' ? (
-                <Person sx={{ color: '#FF6347' }} />
+                <Person sx={{ color: '#fff', background: 'none', borderRadius: '50%' }} />
               ) : (
-                <SmartToy sx={{ color: '#7A8FA6' }} />
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 8,
+                  flexShrink: 0
+                }}>
+                  <img
+                    src="/images/icon.png"
+                    alt="Bot"
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
+                  />
+                </div>
               )}
-              <div style={{ whiteSpace: 'pre-wrap' }}>{msg.message}</div>
+              <div>
+                {msg.role === "ai" ? (
+                  <ReactMarkdown>{msg.message}</ReactMarkdown>
+                ) : (
+                  msg.message
+                )}
+              </div>
             </div>
           ))}
           {isLoading && (
-            <div style={styles.loadingMessage}>
+            <div style={{ 
+              ...styles.loadingMessage, 
+              alignSelf: "flex-start", 
+              marginRight: "auto", 
+              marginLeft: 0 
+            }}>
               <SmartToy sx={{ color: '#7A8FA6' }} />
               <div style={{ whiteSpace: 'pre-wrap' }}>
-                Generating response
-                <span style={styles.loadingDots}>...</span>
+                Generating response<AnimatedDots />
               </div>
             </div>
           )}
           <div ref={chatEndRef} />
         </div>
-
         {error && <div style={styles.errorMessage}>{error}</div>}
-
         {isChatEnded && (
           <div style={{
             ...styles.errorMessage,
@@ -281,6 +349,8 @@ function UserChat() {
             This conversation has ended. Thank you for chatting with us!
           </div>
         )}
+      </div>
+      <div style={styles.inputBarWrapper}>
         <div style={styles.inputArea}>
           <textarea
             style={{

@@ -127,39 +127,7 @@ const [searchTerm, setSearchTerm] = useState("");
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
 
-// Mock data for testing (remove this when API is working)
-const mockData = {
-  leads: [
-    {
-      "Chat Summary": NaN,
-      "Company": "Caze Labs",
-      "Connected": false,
-      "Description": "Software Engineer looking for solutions in extracting data and querying data",
-      "Email": "steamjoe1234@gmail.com",
-      "ID": "4dffd51d-f2af-4bec-a92d-40728f9fa9ac",
-      "Name": "Joval",
-      "Private Link": "http://localhost:3000/chat?user=4dffd51d-f2af-4bec-a92d-40728f9fa9ac",
-      "Sent Date": "Thu, 29 May 2025 16:51:19 GMT",
-      "Status (Hot/Warm/Cold/Not Responded)": "Not Responded",
-      "source": "Head-leads.xlsx"
-    },
-    {
-      "Chat Summary": NaN,
-      "Company": "Red Hat",
-      "Connected": false,
-      "Description": "Infrastructure cost management",
-      "Email": "sinchana@cazelabs.com",
-      "ID": "52962844-afd0-4711-b450-86d81cc0b0d4",
-      "Name": "Sinchana",
-      "Private Link": "http://localhost:3000/chat?user=52962844-afd0-4711-b450-86d81cc0b0d4",
-      "Sent Date": "Thu, 29 May 2025 17:01:21 GMT",
-      "Status (Hot/Warm/Cold/Not Responded)": "Not Responded",
-      "source": "Leads.xlsx"
-    }
-  ]
-};
-
-// Fetch data effect
+// // Fetch data effect
 useEffect(() => {
   async function fetchData() {
     try {
@@ -168,7 +136,7 @@ useEffect(() => {
       
       // For testing purposes, use mock data
       // Replace this with your actual API call
-      const useMockData = true; // Set to false when API is ready
+      const useMockData = false; // Set to false when API is ready
       
       if (useMockData) {
         // Simulate API delay
