@@ -1,10 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all, collect_data_files
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 import os
+resources_path = os.path.join('..','..','.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
 
-chromadb=collect_all('chromadb')
 langchain_docling = collect_all('langchain_docling')
 langchain_chroma = collect_all('langchain_chroma')
+easyocr_data, easyocr_binaries, easyocr_hidden = collect_all('easyocr')
+docling_data, docling_binaries, docling_hidden = collect_all('docling')
 langchain_openai = collect_all('langchain_openai')
 
 # Helper to flatten collect_all output for datas
@@ -17,26 +19,33 @@ mpire_dashboard_templates = collect_data_files('mpire', subdir='dashboard/templa
 
 # Get absolute path to frontend build directory
 frontend_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'build'))
-logo_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'public', 'images', 'logo_transparent.png'))
 
 a = Analysis(
     ['app.py'],
     pathex=['.', '../', '../../'],
-    binaries=[],
+    binaries=[
+        *easyocr_binaries,
+        *docling_binaries,
+    ],
     datas=[
         # Add frontend directory as a single unit
         (frontend_path, 'frontend/build'),
-        (logo_path, '.'),
         ('core', 'core'),
-        ('logging_utils.py', '.'), 
-        *flatten_collect_all(chromadb, 'chromadb'),    
-        *flatten_collect_all(langchain_chroma, 'langchain_chroma'),
+        ('logging_utils.py', '.'),
         *flatten_collect_all(langchain_docling, 'langchain_docling'),
+        *flatten_collect_all(langchain_chroma, 'langchain_chroma'),
         *flatten_collect_all(langchain_openai, 'langchain_openai'),
+        *easyocr_data,
+        (resources_path, 'docling_parse/pdf_resources_v2'),
+        *docling_data,
         *mpire_dashboard_templates,
-        ('logo_transparent.png', '.'), 
     ],
-    hiddenimports=['chromadb.telemetry.product.posthog', 'chromadb.api.rust'],
+    hiddenimports=[
+        *collect_submodules('easyocr'),
+        *collect_submodules('docling'),
+        'chromadb.telemetry.product.posthog',
+        'chromadb.api.rust',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -51,12 +60,12 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='app',
+    name='Caze BizConAI',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
