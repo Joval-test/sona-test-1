@@ -145,7 +145,7 @@ const darkTheme = createTheme({
 });
 
 function AdminChatReview() {
-  const { notification, showSuccess, showError } = useNotification();
+  // const { notification, showSuccess, showError } = useNotification();
   const [uuid, setUuid] = useState('');
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('');

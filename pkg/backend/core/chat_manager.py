@@ -1,5 +1,6 @@
 from langchain.schema import HumanMessage, AIMessage
 from .chat_prompts import create_system_message
+from .report_manager import generate_chat_summary, determine_interest_status, ReportManager
 import json
 import os
 

@@ -10,6 +10,7 @@ import {
   createTheme,
   ThemeProvider,
 } from '@mui/material';
+import { useNotification } from '../hooks/useNotification';
 
 /* ----------  DARK THEME  ---------- */
 const darkTheme = createTheme({

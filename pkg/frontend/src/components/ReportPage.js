@@ -151,8 +151,7 @@ useEffect(() => {
           setFilteredLeads([]);
           setError("Mock data structure is invalid");
         }
-      } else {
-        const res = await fetch("http://localhost:5000/api/report");
+      } else {        const res = await fetch("/api/report");
         
         if (!res.ok) {
           throw new Error(`HTTP error! status: ${res.status}`);
