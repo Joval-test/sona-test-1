@@ -1,91 +1,42 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all, collect_data_files
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all, copy_metadata
 
-# Collect dependencies
-chromadb_data, chromadb_binaries, chromadb_hidden = collect_all('chromadb')
-tiktoken_data, tiktoken_binaries, tiktoken_hidden = collect_all('tiktoken')
-easyocr_data, easyocr_binaries, easyocr_hidden = collect_all('easyocr')
-docling_data, docling_binaries, docling_hidden = collect_all('docling')
+chromadb=collect_all('chromadb')
+langchain_docling = collect_all('langchain_docling')
+langchain_chroma = collect_all('langchain_chroma')
+langchain_openai = collect_all('langchain_openai')
 
-# Define the path to docling resources
-resources_path = os.path.join('.', '../', '../', '.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
+# Helper to flatten collect_all output for datas
+def flatten_collect_all(collect_all_result, dest_folder):
+    datas, binaries, hiddenimports = collect_all_result
+    return [(src, os.path.join(dest_folder, dest)) for src, dest in datas]
 
-# Define frontend build path - for pkg/backend structure
-frontend_build_path = '../frontend/build'
+# Add mpire dashboard templates to datas
+mpire_dashboard_templates = collect_data_files('mpire', subdir='dashboard/templates')
 
-# Verify frontend build exists
-if not os.path.exists(frontend_build_path):
-    print(f"WARNING: Frontend build path does not exist: {frontend_build_path}")
-    print("Make sure to run 'npm run build' in your frontend directory first!")
-else:
-    print(f"Frontend build found at: {frontend_build_path}")
+# Get absolute path to frontend build directory
+frontend_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'build'))
+logo_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'public', 'images', 'logo_transparent.png'))
 
 a = Analysis(
     ['app.py'],
-    pathex=['.', '../', '../../', 'D:/Projects/Caze_IC_Caller_AI/.venv/Lib/site-packages'],
-    binaries=[
-        *chromadb_binaries,
-        *tiktoken_binaries,
-        *easyocr_binaries,
-        *docling_binaries,
-    ],
+    pathex=['.', '../', '../../'],
+    binaries=[],
     datas=[
-        # Core application files
+        # Add frontend directory as a single unit
+        (frontend_path, 'frontend/build'),
+        (logo_path, '.'),
         ('core', 'core'),
-        ('logging_utils.py', '.'),
-        
-        # Frontend build files - this is the key fix
-        (frontend_build_path, 'frontend/build'),
-        
-        # Dependencies data
-        *chromadb_data,
-        *copy_metadata('chromadb'),
-        *tiktoken_data,
-        *easyocr_data,
-        *docling_data,
-        
-        # Additional dependencies
-        ('D:/Projects/Caze_IC_Caller_AI/.venv/Lib/site-packages/langchain_docling', 'langchain_docling'),
-        ('D:/Projects/Caze_IC_Caller_AI/.venv/Lib/site-packages/mpire/dashboard/templates', 'mpire/dashboard/templates'),
-        (resources_path, 'docling_parse/pdf_resources_v2'),
+        ('logging_utils.py', '.'), 
+        *flatten_collect_all(chromadb, 'chromadb'),    
+        *flatten_collect_all(langchain_chroma, 'langchain_chroma'),
+        *flatten_collect_all(langchain_docling, 'langchain_docling'),
+        *flatten_collect_all(langchain_openai, 'langchain_openai'),
+        *mpire_dashboard_templates,
+        ('logo_transparent.png', '.'), 
     ],
-    hiddenimports=[
-        # Hidden imports for all dependencies
-        *tiktoken_hidden,
-        *easyocr_hidden,
-        *docling_hidden,
-        *chromadb_hidden,
-        *collect_submodules('torch'),
-        *collect_submodules('chromadb'),
-        *collect_submodules('tiktoken'),
-        *collect_submodules('easyocr'),
-        *collect_submodules('docling'),
-        
-        # Specific imports
-        'langchain_docling',
-        'chromadb.telemetry.product.posthog',
-        'chromadb.api.rust',
-        'langchain',
-        'langchain.prompts',
-        'langchain_chroma',
-        'langchain_openai',
-        'langchain_ollama',
-        'tiktoken',
-        'tiktoken_ext',
-        'tiktoken_ext.openai_public',
-        'dotenv',
-        'torch',
-        'torch._C',
-        'torch.classes',
-        'torch.distributed',
-        'torch.distributed.nn',
-        'torch.distributed.nn.jit',
-        'chromadb.db.base',
-        'chromadb.utils.embedding_functions',
-        'chromadb.utils.embedding_functions.onnx_model',
-        'chromadb.utils.embedding_functions.sentence_transformer'
-    ],
+    hiddenimports=['chromadb.telemetry.product.posthog', 'chromadb.api.rust'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -93,26 +44,31 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
-
-pyz = PYZ(a.pure, a.zipped_data)
+pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='app',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='Caze BizConAI',
 )

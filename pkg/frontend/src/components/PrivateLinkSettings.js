@@ -4,7 +4,6 @@ import {
   Typography,
   TextField,
   Button,
-  CircularProgress,
   Alert,
   createTheme,
   ThemeProvider
@@ -52,15 +51,16 @@ function PrivateLinkSettings() {
   const [base, setBase] = useState('');
   const [path, setPath] = useState('');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/settings/private-link')
+    fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
-        setBase(data.base || '');
-        setPath(data.path || '');
-        setLoading(false);
+        setBase(data.private_link_base || '');
+        setPath(data.private_link_path || '');
+      })
+      .catch(error => {
+        console.error('Error fetching settings:', error);
       });
   }, []);
 
@@ -145,8 +145,6 @@ function PrivateLinkSettings() {
 
           {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
         </Box>
-
-        {loading && <CircularProgress sx={{ mt: 2 }} />}
       </Box>
     </ThemeProvider>
   );

@@ -46,6 +46,20 @@ const darkTheme = createTheme({
         },
       },
     },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          width: '90%',
+          maxWidth: '600px',
+          animation: 'slideDown 0.3s ease-out',
+        },
+      },
+    },
   },
 });
 
@@ -54,11 +68,10 @@ function CompanyInfoSettings() {
   /* state */
   const [pdfFiles, setPdfFiles] = useState([]);
   const [companyUrls, setCompanyUrls] = useState('');
-  const [fileAlert, setFileAlert] = useState({ text: '', severity: 'info' });
-  const [urlAlert, setUrlAlert] = useState({ text: '', severity: 'info' });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const { notification, showSuccess, showError, clearNotification } = useNotification();
 
   /* file handlers */
   const handleSelect = (e) => {
@@ -82,19 +95,20 @@ function CompanyInfoSettings() {
     e.preventDefault();
     if (!pdfFiles.length) return;
     setUploading(true);
-    setFileAlert({ text: '', severity: 'info' });
 
-    const formData = new FormData();
-    pdfFiles.forEach((f) => formData.append('files', f));
-    const res = await fetch('/api/upload/company-files', { method: 'POST', body: formData });
-    const data = await res.json();
+    try {
+      const formData = new FormData();
+      pdfFiles.forEach((f) => formData.append('files', f));
+      const res = await fetch('/api/upload/company-files', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error();
 
-    setFileAlert({
-      text: res.ok ? 'Company PDFs uploaded successfully' : data.message || 'Upload failed',
-      severity: res.ok ? 'success' : 'error',
-    });
-    if (res.ok) setPdfFiles([]);
-    setUploading(false);
+      showSuccess('Company PDFs uploaded successfully');
+      setPdfFiles([]);
+    } catch (err) {
+      showError('Upload failed');
+    } finally {
+      setUploading(false);
+    }
   };
 
   /* submit URLs */
@@ -102,33 +116,34 @@ function CompanyInfoSettings() {
     e.preventDefault();
     if (!companyUrls.trim()) return;
     setSubmitting(true);
-    setUrlAlert({ text: '', severity: 'info' });
 
-    const body = {
-      urls: companyUrls
-        .split('\n')
-        .map((u) => u.trim())
-        .filter(Boolean),
-    };
+    try {
+      const res = await fetch('/api/upload/company-urls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: companyUrls.split('\n').map((u) => u.trim()).filter(Boolean),
+        }),
+      });
+      if (!res.ok) throw new Error();
 
-    const res = await fetch('/api/upload/company-urls', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
-
-    setUrlAlert({
-      text: res.ok ? 'Company URLs submitted successfully' : data.message || 'Submit failed',
-      severity: res.ok ? 'success' : 'error',
-    });
-    if (res.ok) setCompanyUrls('');
-    setSubmitting(false);
+      showSuccess('Company URLs submitted successfully');
+      setCompanyUrls('');
+    } catch (err) {
+      showError('Submit failed');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   /* ----------  JSX  ---------- */
   return (
     <ThemeProvider theme={darkTheme}>
+      {notification.type && (
+        <Alert severity={notification.type} onClose={clearNotification}>
+          {notification.message}
+        </Alert>
+      )}
       <Box sx={{ width: '100%' }}>
         {/* PDF upload form */}
         <Box component="form" onSubmit={uploadPdfs} sx={{ mb: 4 }}>
@@ -190,12 +205,6 @@ function CompanyInfoSettings() {
               {uploading ? 'Uploading…' : 'Upload PDFs'}
             </Button>
           </Box>
-
-          {fileAlert.text && (
-            <Alert severity={fileAlert.severity} sx={{ mt: 2 }}>
-              {fileAlert.text}
-            </Alert>
-          )}
         </Box>
 
         {/* URLs form */}
@@ -226,12 +235,6 @@ function CompanyInfoSettings() {
               {submitting ? 'Submitting…' : 'Submit URLs'}
             </Button>
           </Box>
-
-          {urlAlert.text && (
-            <Alert severity={urlAlert.severity} sx={{ mt: 2 }}>
-              {urlAlert.text}
-            </Alert>
-          )}
         </Box>
       </Box>
     </ThemeProvider>

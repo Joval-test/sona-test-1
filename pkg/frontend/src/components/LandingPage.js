@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const styles = {
@@ -93,10 +93,43 @@ const styles = {
     color: "#CCCCCC",
     fontSize: "0.9rem",
     lineHeight: "1.4"
+  },
+  errorContainer: {
+    position: 'fixed',
+    top: '20px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 1000,
+    width: '90%',
+    maxWidth: '600px'
+  },
+  errorMessage: {
+    backgroundColor: '#ff3333',
+    color: 'white',
+    padding: '1rem',
+    borderRadius: '8px',
+    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    animation: 'slideDown 0.3s ease-out'
+  },
+  "@keyframes slideDown": {
+    from: { transform: 'translateY(-100%)', opacity: 0 },
+    to: { transform: 'translateY(0)', opacity: 1 }
+  },
+  closeButton: {
+    background: 'none',
+    border: 'none',
+    color: 'white',
+    cursor: 'pointer',
+    fontSize: '1.2rem',
+    padding: '0 8px'
   }
 };
 
 function LandingPage() {
+  const [error, setError] = useState(null);
   const features = [
     {
       icon: "🚀",
@@ -115,8 +148,25 @@ function LandingPage() {
     }
   ];
 
+  const handleError = (error) => {
+    setError(error.message || 'An unexpected error occurred');
+    setTimeout(() => setError(null), 5000);
+  };
+
+  const closeError = () => {
+    setError(null);
+  };
+
   return (
     <div style={styles.container}>
+      {error && (
+        <div style={styles.errorContainer}>
+          <div style={styles.errorMessage}>
+            <span>{error}</span>
+            <button style={styles.closeButton} onClick={closeError}>×</button>
+          </div>
+        </div>
+      )}
       <div style={styles.heroCard}>
         <div style={styles.heroCardBefore}></div>
         <h1 style={styles.title}>Welcome to Caze Labs</h1>
@@ -127,6 +177,16 @@ function LandingPage() {
         <Link 
           to="/connect" 
           style={styles.ctaButton}
+          onClick={async (e) => {
+            try {
+              // Your async operations here
+              // if error occurs:
+              // throw new Error('Specific error message');
+            } catch (err) {
+              e.preventDefault();
+              handleError(err);
+            }
+          }}
           onMouseEnter={(e) => {
             e.target.style.transform = "translateY(-2px)";
             e.target.style.boxShadow = "0 6px 20px #1E88E5";

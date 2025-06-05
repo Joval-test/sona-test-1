@@ -1,11 +1,12 @@
 openapi: 3.0.0
 info:
   title: BizCon API
-  version: 1.2.0
+  version: 0.1.0
   description: |
     API for BizCon Admin and User Chat.
-    - User endpoints are public (by UUID).
-    - Admin endpoints require X-API-KEY header.
+    - Public endpoints are accessible to anyone
+    - User chat endpoints are accessible by UUID
+    - Admin endpoints are restricted to localhost
 servers:
   - url: http://localhost:5000
 
@@ -15,6 +16,7 @@ components:
       type: apiKey
       in: header
       name: X-API-KEY
+      description: API key for admin endpoints. Note that admin endpoints are also restricted to localhost access.
   schemas:
     Lead:
       type: object
@@ -31,22 +33,38 @@ components:
         private_link: { type: string, description: "User's private chat link" }
         status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
         chat_summary: { type: string }
-        connected: { type: boolean }
-    ChatMessage:
+        connected: { type: boolean }    ChatMessage:
       type: object
+      description: A message in a chat conversation
       properties:
-        role: { type: string, enum: [user, ai] }
-        message: { type: string }
-        timestamp: { type: string, format: date-time }
+        role: 
+          type: string 
+          enum: [user, ai]
+          description: The sender of the message - either 'user' or 'ai'
+        message: 
+          type: string
+          description: The content of the message
+        timestamp: 
+          type: string
+          format: date-time
+          description: When the message was sent
     ErrorResponse:
       type: object
+      description: Standard error response format
       properties:
-        error: { type: string }
+        error: 
+          type: string
+          description: Error message describing what went wrong
     SuccessResponse:
       type: object
+      description: Standard success response format
       properties:
-        success: { type: boolean }
-        message: { type: string }
+        success: 
+          type: boolean
+          description: Whether the operation was successful
+        message: 
+          type: string
+          description: A message describing the result
 
 paths:
   /api/upload/company-files:
@@ -307,10 +325,32 @@ paths:
           description: Bad request
           content:
             application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }  /api/user_chat/{uuid}:
+    get:
+      summary: Get chat history for a user
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Chat history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items: { $ref: '#/components/schemas/ChatMessage' }
+        '404':
+          description: Invalid or expired chat link
+          content:
+            application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-  /api/user_chat/{uuid}:
     post:
-      summary: User chat endpoint
+      summary: Send a message in the user chat
       parameters:
         - in: path
           name: uuid
@@ -333,6 +373,11 @@ paths:
                 type: object
                 properties:
                   response: { type: string }
+        '400':
+          description: No message provided
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404':
           description: Invalid or expired chat link
           content:
@@ -424,10 +469,10 @@ paths:
                       deployment:
                         type: string
                       embedding_deployment:
-                        type: string
-  /api/clear-all:
+                        type: string  /api/clear-all:
     post:
-      summary: Clear all data
+      summary: Clear all data (chats, files, and leads)
+      description: Clears all stored data including chat histories, uploaded files, and lead information
       responses:
         '200':
           description: Clear result
@@ -438,8 +483,20 @@ paths:
                 properties:
                   success:
                     type: boolean
+                    description: Whether the operation was successful
                   message:
                     type: string
+                    description: Description of the operation result
+        '500':
+          description: Failed to clear data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message explaining why the operation failed
   /api/uploaded-files:
     get:
       summary: List uploaded files and leads
@@ -501,13 +558,18 @@ paths:
                       properties:
                         Name: { type: string }
                         Company: { type: string }
-                        Email: { type: string }
-                        ID: { type: string }
+                        Email: { type: string }                        ID: { type: string }
                         Sent Date: { type: string }
                         Chat Summary: { type: string }
                         Private Link: { type: string }
                         Status: { type: string }
                         Lead Status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
+                        Source: { type: string }
+                        Contact: { type: string }
+                        Connected: { type: boolean }
+                        email_sent: { type: boolean }
+                        email_sent_count: { type: integer }
+                        last_email_sent: { type: string, format: date-time }
         '404':
           description: No report available
           content:
@@ -516,4 +578,4 @@ paths:
                 type: object
                 properties:
                   error:
-                    type: string 
+                    type: string

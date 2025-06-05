@@ -126,64 +126,82 @@ const darkTheme = createTheme({
                 },
             }
         }
-    }
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          width: '90%',
+          maxWidth: '600px',
+          animation: 'slideDown 0.3s ease-out',
+        },
+      },
+    },
   },
 });
 
 function AdminChatReview() {
+  const { notification, showSuccess, showError } = useNotification();
   const [uuid, setUuid] = useState('');
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('');
   const [summary, setSummary] = useState('');
   const [contact, setContact] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [markingLead, setMarkingLead] = useState(false);
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
-    setError('');
-    setMessage('');
-    const apiKey = localStorage.getItem('admin_api_key');
-    if (!apiKey) {
-      setError('Not authenticated');
+    try {
+      const apiKey = localStorage.getItem('admin_api_key');
+      if (!apiKey) throw new Error();
+      
+      const res = await fetch(`/api/admin/chat_history/${uuid}`, {
+        headers: { 'X-API-KEY': apiKey }
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setHistory(data.history || []);
+    } catch (err) {
+      showError();
+    } finally {
       setLoadingHistory(false);
-      return;
     }
-    const res = await fetch(`/api/admin/chat_history/${uuid}`, {
-      headers: { 'X-API-KEY': apiKey }
-    });
-    const data = await res.json();
-    if (data.error) setError(data.error);
-    setHistory(data.history || []);
-    setLoadingHistory(false);
   };
 
   const markLead = async () => {
     setMarkingLead(true);
-    setError('');
-    setMessage('');
-    const apiKey = localStorage.getItem('admin_api_key');
-    if (!apiKey) {
-      setError('Not authenticated');
+    try {
+      const apiKey = localStorage.getItem('admin_api_key');
+      if (!apiKey) throw new Error();
+      
+      const res = await fetch('/api/admin/mark_lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
+        body: JSON.stringify({ uuid, status, summary, contact })
+      });
+      if (!res.ok) throw new Error();
+      showSuccess();
+    } catch (err) {
+      showError();
+    } finally {
       setMarkingLead(false);
-      return;
     }
-    const res = await fetch('/api/admin/mark_lead', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-KEY': apiKey },
-      body: JSON.stringify({ uuid, status, summary, contact })
-    });
-    const data = await res.json();
-    if (data.success) setMessage('Lead updated!');
-    else setError(data.error || 'Update failed');
-    setMarkingLead(false);
   };
 
   return (
     <ThemeProvider theme={darkTheme}>
       <Container maxWidth="sm" sx={{ background: darkTheme.palette.background.default, padding: '2rem', minHeight: '100vh', color: darkTheme.palette.text.primary }}>
+        {notification.type && (
+          <Alert severity={notification.type} onClose={clearNotification}>
+            {notification.message}
+          </Alert>
+        )}
+        
         <Typography variant="h4" component="h2" gutterBottom>Admin Chat Review</Typography>
         <Box sx={{ display: 'flex', gap: 2, marginBottom: 3 }}>
           <TextField
@@ -198,8 +216,6 @@ function AdminChatReview() {
             {loadingHistory ? 'Fetching...' : 'Fetch Chat'}
           </Button>
         </Box>
-
-        {error && <Alert severity="error" sx={{ marginBottom: 2 }}>{error}</Alert>}
 
         <Paper sx={{ minHeight: 200, padding: 2, marginBottom: 3, overflowY: 'auto' }}>
           {history.length === 0 ? (
@@ -256,11 +272,9 @@ function AdminChatReview() {
             {markingLead ? 'Marking...' : 'Mark Lead'}
           </Button>
         </Box>
-
-        {message && <Alert severity="success" sx={{ marginTop: 2 }}>{message}</Alert>}
       </Container>
     </ThemeProvider>
   );
 }
 
-export default AdminChatReview; 
+export default AdminChatReview;

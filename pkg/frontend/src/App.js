@@ -107,30 +107,30 @@ function Sidebar() {
       <nav style={{ flex: 1 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <NavButton 
-            to="/connect" 
+            to="/api/connect" 
             icon={Dashboard} 
-            isActive={location.pathname === '/connect'}
+            isActive={location.pathname === 'api/connect'}
           >
             Connect
           </NavButton>
           <NavButton 
-            to="/report" 
+            to="/api/report" 
             icon={Assessment} 
-            isActive={location.pathname === '/report'}
+            isActive={location.pathname === 'api/report'}
           >
             Report
           </NavButton>
           <NavButton 
-            to="/settings" 
+            to="/api/settings" 
             icon={Settings} 
-            isActive={location.pathname === '/settings'}
+            isActive={location.pathname === 'api/settings'}
           >
             Settings
           </NavButton>
           <NavButton 
-            to="/help" 
+            to="/api/help" 
             icon={Help} 
-            isActive={location.pathname === '/help'}
+            isActive={location.pathname === 'api/help'}
           >
             Help
           </NavButton>
@@ -179,11 +179,11 @@ function App() {
           padding: isUserChat ? 0 : undefined
         }}>
           <Routes>
-            <Route path="/connect" element={<ConnectDashboard />} />
-            <Route path="/report" element={<ReportPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/chat" element={<UserChat />} />
+            <Route path="/api/connect" element={<ConnectDashboard />} />
+            <Route path="/api/report" element={<ReportPage />} />
+            <Route path="/api/settings" element={<SettingsPage />} />
+            <Route path="/api/help" element={<HelpPage />} />
+            <Route path="/api/chat" element={<UserChat />} />
             <Route path="/connect/chat-review" element={
               isAdmin ? <AdminChatReview /> : <AdminLogin onLogin={() => setIsAdmin(true)} />
             } />

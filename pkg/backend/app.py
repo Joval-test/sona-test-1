@@ -1,10 +1,16 @@
 import os
-from threading import Thread
-from flask          import Flask, jsonify, send_from_directory, request
+from threading import Thread, Timer
+from flask          import Flask, jsonify, send_from_directory, request, current_app, send_file
 from flask_cors     import CORS
 from functools      import wraps
-from logging_utils  import stage_log
+# from logging_utils  import stage_log
 import sys
+import logging
+import webbrowser
+import pystray
+from PIL import Image
+import threading
+import signal
 # ---------------  domain logic  ---------------
 from core.company   import handle_company_files, handle_company_urls
 from core.user      import handle_user_files
@@ -19,214 +25,265 @@ from core.admin     import admin_bp         #  protected
 from core.report    import report_bp
 from flask          import send_from_directory
 
+# Configure Flask logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # ---------------  app / conf  ---------------
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # When running as exe, _MEIPASS contains the temp folder with extracted files
-        base_path = sys._MEIPASS
-    except AttributeError:
-        # When running in development
-        base_path = os.path.abspath(os.path.dirname(__file__))
-    return os.path.join(base_path, relative_path)
-
-# Fixed static folder path resolution
-if getattr(sys, 'frozen', False):
-    # Running as EXE - frontend/build is extracted to _MEIPASS/frontend/build
-    static_folder_path = resource_path('frontend/build')
-else:
-    # Running in development - pkg/backend/app.py, need to go to pkg/frontend/build
-    current_dir = os.path.dirname(os.path.abspath(__file__))  # pkg/backend/
-    pkg_dir = os.path.dirname(current_dir)  # pkg/
-    static_folder_path = os.path.join(pkg_dir, 'frontend', 'build')
-
-print("Running in EXE:", getattr(sys, 'frozen', False))
-print("Static folder path:", static_folder_path)
-print("Static folder exists:", os.path.exists(static_folder_path))
-
-# Check if the static folder exists and list its contents
-if os.path.exists(static_folder_path):
-    print("Files in static folder:", os.listdir(static_folder_path))
-    # Check specifically for index.html
-    index_path = os.path.join(static_folder_path, 'index.html')
-    print("index.html exists:", os.path.exists(index_path))
-else:
-    print("ERROR: Static folder does not exist!")
-    # Try to find where the frontend files actually are
+def create_app():
     if getattr(sys, 'frozen', False):
-        print("Contents of _MEIPASS:", os.listdir(sys._MEIPASS))
-        frontend_path = os.path.join(sys._MEIPASS, 'frontend')
-        if os.path.exists(frontend_path):
-            print("Contents of frontend folder:", os.listdir(frontend_path))
+        # Running as compiled executable
+        base_dir = sys._MEIPASS
+        static_folder_path = os.path.join(base_dir, 'frontend', 'build')
+    else:
+        # Running in development
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        pkg_dir = os.path.dirname(current_dir)
+        static_folder_path = os.path.join(pkg_dir, 'frontend', 'build')
+    
+    logger.info(f"Running as executable: {getattr(sys, 'frozen', False)}")
+    logger.info(f"Static folder path: {static_folder_path}")
+    logger.info(f"Static folder exists: {os.path.exists(static_folder_path)}")
 
-app = Flask(__name__, static_folder=static_folder_path, static_url_path="")
-app.config.update(
-    CHATS_DIR="data/chats",
-    REPORT_PATH="data/report.xlsx",
-    # Enable CORS properly
-    CORS_HEADERS='Content-Type'
-)
+    app = Flask(__name__, 
+                static_folder=static_folder_path,
+                static_url_path='')
 
-# Configure CORS with more options
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Type", "X-Total-Count"]
-    }
-})
-
-# ---------------  IP restriction decorator  ---------------
-def restrict_to_localhost(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if request.remote_addr != "127.0.0.1":
-            return jsonify({"error": "Access denied"}), 403
-        return f(*args, **kwargs)
-    return decorated
-
-# ---------------  blueprints  ---------------
-app.register_blueprint(user_chat_bp)  
-app.register_blueprint(admin_bp)      
-app.register_blueprint(report_bp)     
-
-# ---------------  PUBLIC api with restrictions  ---------------
-@app.route("/api/leads")
-@stage_log(2)
-@restrict_to_localhost
-def get_leads():
-    return jsonify(get_grouped_leads())
-
-@app.route("/api/send_emails", methods=["POST"])
-@stage_log(1)
-def send_emails():
-    lead_ids = (request.json or {}).get("lead_ids", [])
-    return jsonify(send_emails_to_leads(lead_ids))
-
-@app.route("/api/upload/company-files", methods=["POST"])
-@stage_log(1)
-def upload_company_files():
-    return jsonify(handle_company_files(request.files.getlist("files")))
-
-@app.route("/api/upload/company-urls", methods=["POST"])
-@stage_log(1)
-def upload_company_urls():
-    return jsonify(handle_company_urls(request.json.get("urls", [])))
-
-@app.route("/api/upload/user-files", methods=["POST"])
-@stage_log(1)
-def upload_user_files():
-    return jsonify(handle_user_files(request.files.getlist("files")))
-
-@app.route("/api/settings/email", methods=["POST"])
-@stage_log(2)
-@restrict_to_localhost
-def api_save_email_settings():
-    return jsonify(save_email_settings(request.json))
-
-@app.route("/api/settings/azure", methods=["POST"])
-@stage_log(2)
-@restrict_to_localhost
-def api_save_azure_settings():
-    return jsonify(save_azure_settings(request.json))
-
-@app.route("/api/settings", methods=["GET"])
-@stage_log(2)
-@restrict_to_localhost
-def api_get_settings():
-    return jsonify(get_settings())
-
-@app.route("/api/clear-all", methods=["POST"])
-@stage_log(1)
-def api_clear_all():
-    return jsonify(clear_all_data())
-
-# @app.route("/api/uploaded-files", methods=["GET"])
-# @stage_log(2)
-# def api_get_uploaded_files():
-#     return jsonify(get_uploaded_files())
-
-@app.route("/api/settings/private-link", methods=["GET", "POST"])
-@stage_log(2)
-@restrict_to_localhost
-def api_private_link():
-    if request.method == "GET":
-        return jsonify(get_private_link_config())
-    return jsonify(save_private_link_config(request.json))
-
-# Add OPTIONS handler for API routes
-@app.route("/api/<path:path>", methods=["OPTIONS"])
-def handle_api_options(path):
-    return "", 204, {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization"
-    }
-
-# Temporary debug route
-@app.route("/debug")
-def debug():
-    return jsonify({
-        "static_folder": app.static_folder,
-        "static_folder_exists": os.path.exists(app.static_folder),
-        "static_folder_contents": os.listdir(app.static_folder) if os.path.exists(app.static_folder) else None,
-        "index_html_exists": os.path.exists(os.path.join(app.static_folder, 'index.html')),
-        "frozen": getattr(sys, 'frozen', False),
-        "_MEIPASS": getattr(sys, '_MEIPASS', 'Not available'),
-        "static_url_path": app.static_url_path
+    # Enable CORS
+    CORS(app, resources={
+        r"/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
     })
 
-# Flag to track if static files check has been performed
-_static_files_checked = False
+    # Register blueprints
+    app.register_blueprint(user_chat_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(report_bp)
 
-@app.before_request
-def check_static_files():
-    global _static_files_checked
-    if not _static_files_checked:
-        print("\n=== Static Files Debug Info ===")
-        print(f"Static folder: {app.static_folder}")
-        print(f"Static folder exists: {os.path.exists(app.static_folder)}")
-        if os.path.exists(app.static_folder):
-            print("Static folder contents:", os.listdir(app.static_folder))
-        print("==============================\n")
-        _static_files_checked = True
+    # @app.before_request
+    # def log_request_info():
+    #     logger.info('Headers: %s', request.headers)
+    #     logger.info('Body: %s', request.get_data())
+    #     logger.info('Path: %s', request.path)
 
-# ---------------  REACT SPA  ---------------
-# Replace your serve_react function with this improved version:
-
-@app.route("/", defaults={"path": ""})
-@app.route("/<path:path>")
-def serve_react(path):
-    # Handle API routes first
-    if path.startswith('api/'):
-        # Let the actual API route handlers deal with it
-        endpoint = request.endpoint
-        if endpoint and endpoint in app.view_functions:
-            return app.view_functions[endpoint]()
-        return jsonify({"error": "API route not found"}), 404
-    
-    # Try to serve static files first
-    if path:
+    # API Routes
+    @app.route("/api/leads", methods=['GET'])
+    def api_leads():
+        # logger.info("API: /api/leads called")
         try:
-            file_path = os.path.join(app.static_folder, path)
-            if os.path.exists(file_path) and os.path.isfile(file_path):
-                return send_from_directory(app.static_folder, path)
+            result = get_grouped_leads()
+            # logger.info(f"API leads result: {result}")
+            return jsonify(result)
         except Exception as e:
-            print(f"Error serving static file: {e}")
-      # For all other routes (including /connect), serve index.html to let React handle client-side routing
+            # logger.error(f"Error in /api/leads: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/send_emails", methods=["POST"])
+    def send_emails():
+        # logger.info("API: /api/send_emails called")
+        lead_ids = (request.json or {}).get("lead_ids", [])
+        return jsonify(send_emails_to_leads(lead_ids))
+
+    @app.route("/api/upload/company-files", methods=["POST"])
+    def upload_company_files():
+        # logger.info("API: /api/upload/company-files called")
+        return jsonify(handle_company_files(request.files.getlist("files")))
+
+    @app.route("/api/upload/company-urls", methods=["POST"])
+    def upload_company_urls():
+        # logger.info("API: /api/upload/company-urls called")
+        return jsonify(handle_company_urls(request.json.get("urls", [])))
+
+    @app.route("/api/upload/user-files", methods=["POST"])
+    #@stage_log(1)
+    def upload_user_files():
+        # logger.info("API: /api/upload/user-files called")
+        return jsonify(handle_user_files(request.files.getlist("files")))
+
+    @app.route("/api/settings", methods=["GET"])
+    def api_get_settings():
+        # logger.info("API: /api/settings called")
+        return jsonify(get_settings())
+
+    @app.route("/api/settings/email", methods=["POST"])
+    def api_save_email_settings():
+        data = request.json
+        result = save_email_settings(data)
+        return jsonify(result)
+
+    @app.route("/api/settings/azure", methods=["POST"])
+    def api_save_azure_settings():
+        data = request.json
+        result = save_azure_settings(data)
+        return jsonify(result)
+
+    @app.route("/api/settings/private-link", methods=["POST"]) 
+    def api_save_private_link_settings():
+        data = request.json
+        result = save_private_link_config(data)
+        return jsonify(result)
+
+    @app.route("/api/clear-all", methods=["POST"])
+    def api_clear_all():
+        result = clear_all_data()
+        return jsonify({"message": "All data cleared successfully"} if result else {"message": "Failed to clear data"})
+
+    # Serve static files
+    @app.route('/static/<path:path>')
+    def serve_static(path):
+        # logger.info(f"Serving static file: {path}")
+        try:
+            return send_from_directory(os.path.join(app.static_folder, 'static'), path)
+        except Exception as e:
+            # logger.error(f"Error serving static file {path}: {e}")
+            return jsonify({"error": f"Failed to serve static file: {str(e)}"}), 500
+
+    # Serve other assets (like favicon.ico)
+    @app.route('/<path:filename>')
+    def serve_asset(filename):
+        # logger.info(f"Serving asset: {filename}")
+        try:
+            if os.path.exists(os.path.join(static_folder_path, filename)):
+                return send_from_directory(static_folder_path, filename)
+            return send_file(os.path.join(static_folder_path, 'index.html'))
+        except Exception as e:
+            # logger.error(f"Error serving asset {filename}: {e}")
+            return jsonify({"error": f"Failed to serve asset: {str(e)}"}), 500
+
+    # Serve React App
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def catch_all(path):
+        if path.startswith('api/'):
+            return jsonify({"error": "API endpoint not found"}), 404
+        
+        if path.startswith('static/'):
+            return app.send_static_file(path)
+            
+        return app.send_static_file('index.html')
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return app.send_static_file('index.html')
+
+    @app.after_request
+    def add_header(response):
+        # Disable caching for all routes
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+
+    return app
+
+# Create the app
+app = create_app()
+
+def open_browser():
+    webbrowser.open('http://localhost:5000')
+
+def create_tray_icon(stop_function):
     try:
-        return send_from_directory(app.static_folder, 'index.html')
+        # Create white background
+        icon_size = (64, 64)
+        background = Image.new('RGBA', icon_size, 'white')
+        
+        # Load and resize logo
+        icon_path = os.path.join(os.path.dirname(__file__), 'logo_transparent.png')
+        if getattr(sys, 'frozen', False):
+            icon_path = os.path.join(sys._MEIPASS, 'logo.png')
+            
+        logo = Image.open(icon_path)
+        logo = logo.resize(icon_size, Image.Resampling.LANCZOS)
+        
+        # Composite logo over white background
+        background.paste(logo, (0, 0), logo)
+        
     except Exception as e:
-        print(f"Error serving index.html: {e}")
-        return jsonify({
-            "error": "Failed to serve React app",
-            "details": str(e),
-            "static_folder": app.static_folder,
-            "path_requested": path,
-            "static_folder_exists": os.path.exists(app.static_folder),
-            "index_exists": os.path.exists(os.path.join(app.static_folder, 'index.html'))
-        }), 500
+        logger.error(f"Error creating tray icon: {e}")
+        # Fallback to simple colored icon
+        background = Image.new('RGB', (64, 64), 'white')
+    
+    def quit_window(icon, item):
+        icon.stop()
+        stop_function()
+
+    menu = pystray.Menu(
+        pystray.MenuItem("Caze BizCon AI", None, enabled=False),
+        pystray.MenuItem("Open", lambda: webbrowser.open('http://localhost:5000')),
+        pystray.MenuItem("Exit", quit_window)
+    )
+    
+    icon = pystray.Icon(
+        "Caze BizConAI",
+        background,
+        menu=menu
+    )
+    return icon
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    logger.info("\n=== Starting Flask App ===")
+    logger.info(f"Current working directory: {os.getcwd()}")
+    logger.info(f"Static folder: {app.static_folder}")
+    
+    # Check if index.html exists and is readable
+    index_path = os.path.join(app.static_folder, 'index.html')
+    logger.info(f"Checking index.html at: {index_path}")
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r') as f:
+                logger.info("Successfully opened index.html")
+                content = f.read(100)  
+                # logger.info(f"First 100 chars of index.html: {content}")
+        except Exception as e:
+            logger.error(f"Error reading index.html: {e}")
+    else:
+        logger.error("index.html not found!")
+        
+    # logger.info("Static folder contents:")
+    # if os.path.exists(app.static_folder):
+    #     for root, dirs, files in os.walk(app.static_folder):
+    #         level = root.replace(app.static_folder, '').count(os.sep)
+    #         indent = ' ' * 4 * level
+    #         logger.info(f"{indent}{os.path.basename(root)}/")
+    #         subindent = ' ' * 4 * (level + 1)
+    #         for f in files:
+    #             logger.info(f"{subindent}{f}")
+    
+    # logger.info("\nRegistered routes:")
+    # for rule in app.url_map.iter_rules():
+    #     logger.info(f"Route: {rule.rule} - Methods: {rule.methods}")
+    # logger.info("=========================\n")
+    
+    # Disable reloader when running as executable
+    use_reloader = not getattr(sys, 'frozen', False)
+    
+    server_running = threading.Event()
+    server_running.set()
+
+    def stop_server():
+        server_running.clear()
+        os.kill(os.getpid(), signal.SIGINT)
+
+    # Create and start system tray icon
+    icon = create_tray_icon(stop_server)
+    icon_thread = threading.Thread(target=icon.run)
+    icon_thread.daemon = True
+    icon_thread.start()
+
+    # Open browser after delay
+    Timer(1.5, open_browser).start()
+    
+    try:
+        app.run(
+            debug=True, 
+            port=5000, 
+            use_reloader=False,
+            host='0.0.0.0'
+        )
+    finally:
+        if icon_thread.is_alive():
+            icon.stop()
