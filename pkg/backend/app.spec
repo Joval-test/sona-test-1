@@ -3,6 +3,9 @@ from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_sub
 import os
 resources_path = os.path.join('..','..','.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
 
+# Get icon path
+icon_path = os.path.abspath(os.path.join(SPECPATH, 'app_icon.ico'))
+
 langchain_docling = collect_all('langchain_docling')
 langchain_chroma = collect_all('langchain_chroma')
 easyocr_data, easyocr_binaries, easyocr_hidden = collect_all('easyocr')
@@ -32,6 +35,7 @@ a = Analysis(
         (frontend_path, 'frontend/build'),
         ('core', 'core'),
         ('logging_utils.py', '.'),
+        ('logo_transparent.png', '.'),  # Add logo to root of executable
         *flatten_collect_all(langchain_docling, 'langchain_docling'),
         *flatten_collect_all(langchain_chroma, 'langchain_chroma'),
         *flatten_collect_all(langchain_openai, 'langchain_openai'),
@@ -50,11 +54,15 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=None,
     noarchive=False,
-    optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
+# Create the EXE
 exe = EXE(
     pyz,
     a.scripts,
@@ -64,14 +72,16 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
-    console=True,
+    upx=False,  # Disable UPX compression
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=icon_path,
 )
+
 coll = COLLECT(
     exe,
     a.binaries,

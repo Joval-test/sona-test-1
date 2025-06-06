@@ -192,16 +192,21 @@ def create_tray_icon(stop_function):
         background = Image.new('RGBA', icon_size, 'white')
         
         # Load and resize logo
-        icon_path = os.path.join(os.path.dirname(__file__), 'logo_transparent.png')
         if getattr(sys, 'frozen', False):
-            icon_path = os.path.join(sys._MEIPASS, 'logo.png')
+            # When running as executable
+            icon_path = os.path.join(sys._MEIPASS, 'logo_transparent.png')
+        else:
+            # When running in development
+            icon_path = os.path.join(os.path.dirname(__file__), 'logo_transparent.png')
             
-        logo = Image.open(icon_path)
-        logo = logo.resize(icon_size, Image.Resampling.LANCZOS)
-        
-        # Composite logo over white background
-        background.paste(logo, (0, 0), logo)
-        
+        logger.info(f"Loading tray icon from: {icon_path}")
+        if os.path.exists(icon_path):
+            logo = Image.open(icon_path)
+            logo = logo.resize(icon_size, Image.Resampling.LANCZOS)
+            background.paste(logo, (0, 0), logo)
+        else:
+            logger.error(f"Logo file not found at: {icon_path}")
+            
     except Exception as e:
         logger.error(f"Error creating tray icon: {e}")
         # Fallback to simple colored icon

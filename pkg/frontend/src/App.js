@@ -8,24 +8,28 @@ import AdminChatReview from './components/AdminChatReview';
 import AdminLogin from './components/AdminLogin';
 import LandingPage from './components/LandingPage';
 import ReportPage from './components/ReportPage';
-import { Box, Typography, Button } from '@mui/material';
-import { Dashboard, Assessment, Settings, Help, Chat } from '@mui/icons-material';
+import { Box, Typography, IconButton } from '@mui/material';
+import { Dashboard, Assessment, Settings, Help, Chat, Menu } from '@mui/icons-material';
 
 const sidebarStyles = {
   container: {
     width: 280,
     flexShrink: 0,
-    background: '#F5F7FA',  // Changed to off-white for better blending
+    background: '#F5F7FA',
     color: '#000000',
     padding: '24px 16px',
     borderRight: '1px solid #e0e0e0',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '4px 0 12px rgba(0,0,0,0.1)',
-    position: 'sticky',
-    top: 0,
+    position: 'fixed',
     height: '100vh',
-    overflowY: 'auto'
+    overflowY: 'auto',
+    transition: 'transform 0.3s ease-in-out',
+    zIndex: 1000,
+  },  containerClosed: {
+    transform: 'translateX(-100%)',
+    visibility: 'hidden',
   },
   logo: {
     marginBottom: '2rem',
@@ -46,17 +50,49 @@ const sidebarStyles = {
     marginBottom: '8px',
     transition: 'all 0.2s ease-in-out',
     fontWeight: 500
+  },  mainContentShift: {
+    marginLeft: '312px',  // 280px + padding
+    transition: 'all 0.3s ease-in-out',
+    width: 'calc(100% - 312px)',
+    padding: '24px',
   },
-  navButtonActive: {
-    background: '#2196F3',
-    color: '#FFFFFF',
-    fontWeight: 600
+  mainContentFull: {
+    marginLeft: '0',
+    width: '100%',
+    padding: '24px',
+    transition: 'all 0.3s ease-in-out',
+  },  header: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '64px',
+    background: '#1E1E1E',
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0 20px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+    zIndex: 999,
   },
-  navButtonHover: {
-    background: '#E3F2FD',
-    color: '#2196F3'
-  }
-}
+  headerLogo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginLeft: '12px',
+  },
+  headerImage: {
+    height: '32px',
+    width: 'auto',
+    padding: '4px',
+    background: '#FFFFFF',
+    borderRadius: '8px',
+  },
+  headerTitle: {
+    fontSize: '1.2rem',
+    fontWeight: 600,
+    color: '#FFFFFF',  
+  },
+};
 
 function NavButton({ to, icon: Icon, children, isActive }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -80,7 +116,7 @@ function NavButton({ to, icon: Icon, children, isActive }) {
   );
 }
 
-function Sidebar() {
+function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
   const isUserChat = location.pathname === '/chat';
   
@@ -89,15 +125,18 @@ function Sidebar() {
   }
 
   return (
-    <Box sx={sidebarStyles.container}>
+    <Box sx={{
+      ...sidebarStyles.container,
+      ...(isOpen ? {} : sidebarStyles.containerClosed),
+    }}>
       <Box sx={sidebarStyles.logo}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
           <img 
             src="/images/logo_transparent.png" 
             alt="Product Logo" 
             style={{ 
-              width: '200px',  // Increased from 120px
-              height: 'auto',  // Changed to auto to maintain aspect ratio
+              width: '200px',
+              height: 'auto',
               objectFit: 'contain',
               maxWidth: '100%'
             }} 
@@ -106,32 +145,16 @@ function Sidebar() {
       </Box>
       <nav style={{ flex: 1 }}>
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          <NavButton 
-            to="/connect" 
-            icon={Dashboard} 
-            isActive={location.pathname === '/connect'}
-          >
+          <NavButton to="/connect" icon={Dashboard} isActive={location.pathname === '/connect'}>
             Connect
           </NavButton>
-          <NavButton 
-            to="/report" 
-            icon={Assessment} 
-            isActive={location.pathname === '/report'}
-          >
+          <NavButton to="/report" icon={Assessment} isActive={location.pathname === '/report'}>
             Report
           </NavButton>
-          <NavButton 
-            to="/settings" 
-            icon={Settings} 
-            isActive={location.pathname === '/settings'}
-          >
+          <NavButton to="/settings" icon={Settings} isActive={location.pathname === '/settings'}>
             Settings
           </NavButton>
-          <NavButton 
-            to="/help" 
-            icon={Help} 
-            isActive={location.pathname === '/help'}
-          >
+          <NavButton to="/help" icon={Help} isActive={location.pathname === '/help'}>
             Help
           </NavButton>
         </Box>
@@ -154,10 +177,49 @@ function Sidebar() {
   );
 }
 
-function App() {
-  const [isAdmin, setIsAdmin] = useState(!!localStorage.getItem('admin_api_key'));
+function Header({ isOpen, onToggle }) {
   const location = useLocation();
   const isUserChat = location.pathname === '/chat';
+  
+  if (isUserChat) {
+    return null;
+  }
+  return (
+    <Box sx={sidebarStyles.header}>
+      <IconButton 
+        onClick={onToggle}
+        size="large"
+        edge="start"
+        aria-label="menu"
+        sx={{ color: '#FFFFFF' }}  // Make hamburger icon white
+      >
+        <Menu />
+      </IconButton>
+      {!isOpen && (
+        <Box sx={sidebarStyles.headerLogo}>
+          <img 
+            src="/images/icon.png" 
+            alt="Caze Icon" 
+            style={sidebarStyles.headerImage}
+          />
+          <Typography sx={sidebarStyles.headerTitle}>
+            Caze BizCon AI
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function App() {
+  const [isAdmin, setIsAdmin] = useState(!!localStorage.getItem('admin_api_key'));
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const location = useLocation();
+  const isUserChat = location.pathname === '/chat';
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   return (
     <Box sx={{ 
@@ -167,15 +229,17 @@ function App() {
       background: '#121212',
       fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
     }}>
-      <Box sx={{ display: 'flex', flexGrow: 1 }}>
-        <Sidebar />
+      <Header isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+      <Box sx={{ display: 'flex', flexGrow: 1, marginTop: '64px' }}>
+        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
         
         <Box component="main" sx={{ 
           flexGrow: 1, 
           background: '#121212',
           overflowY: 'auto',
-          minHeight: '100vh',
-          padding: isUserChat ? 0 : undefined
+          minHeight: 'calc(100vh - 64px)',
+          padding: isUserChat ? 0 : undefined,
+          ...(isSidebarOpen ? sidebarStyles.mainContentShift : sidebarStyles.mainContentFull),
         }}>
           <Routes>
             <Route path="/connect" element={<ConnectDashboard />} />

@@ -134,17 +134,17 @@ function LandingPage() {
     {
       icon: "🚀",
       title: "AI-Powered Leads",
-      description: "Intelligent lead management with automated communication"
+      description: "Intelligent lead management with automated communication. Our AI-driven system helps you engage with prospects more effectively."
     },
     {
       icon: "📊",
       title: "Smart Analytics",
-      description: "Comprehensive reporting and insights for better decisions"
+      description: "Track and analyze your communication performance with comprehensive reporting and actionable insights."
     },
     {
       icon: "🔗",
       title: "Seamless Integration",
-      description: "Connect with your existing tools and workflows"
+      description: "Easily integrate with your existing tools and data. Import your leads and company information without hassle."
     }
   ];
 

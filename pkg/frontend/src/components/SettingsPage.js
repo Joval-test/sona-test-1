@@ -96,11 +96,31 @@ function SettingsPage() {
   };
 
   const tabs = [
-    { id: 'email', label: 'Email Settings' },
-    { id: 'azure', label: 'Azure Config' },
-    { id: 'private', label: 'Private Links' },
-    { id: 'company', label: 'Company Info' },
-    { id: 'leads', label: 'Leads Data' }
+    { 
+      id: 'email', 
+      label: 'Email Settings',
+      description: 'Configure your email settings for automated communications with leads.'
+    },
+    { 
+      id: 'azure', 
+      label: 'Azure Config',
+      description: 'Set up your Azure OpenAI configuration for AI-powered features.'
+    },
+    { 
+      id: 'private', 
+      label: 'Private Links',
+      description: 'Manage private chat links for secure conversations with leads.'
+    },
+    { 
+      id: 'company', 
+      label: 'Company Info',
+      description: 'Upload and manage your company information and documents.'
+    },
+    { 
+      id: 'leads', 
+      label: 'Leads Data',
+      description: 'Import and manage your leads database.'
+    }
   ];
 
   const renderTabContent = () => {
@@ -135,6 +155,17 @@ function SettingsPage() {
           </button>
         ))}
       </div>
+
+      {tab && (
+        <p style={{
+          color: '#7A8FA6',
+          margin: '1rem 0 2rem',
+          fontSize: '1rem',
+          textAlign: 'center',
+        }}>
+          {tabs.find(t => t.id === tab)?.description}
+        </p>
+      )}
 
       {message && (
         <div style={styles.alertMessage}>

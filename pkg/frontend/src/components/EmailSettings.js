@@ -118,30 +118,49 @@ function EmailSettings() {
   const [password, setPassword] = useState('');
   const [alertInfo, setAlertInfo] = useState({ text: '', severity: 'info' });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setAlertInfo({ text: '', severity: 'info' });
+    setError('');
+    setSuccess('');
 
-    const res = await fetch('/api/settings/email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sender: email, password }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch('/api/settings/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sender: email, password }),
+      });
 
-    setAlertInfo({
-      text: res.ok
-        ? 'Email settings saved successfully'
-        : data.message || 'Failed to save email settings',
-      severity: res.ok ? 'success' : 'error',
-    });
-    setSaving(false);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save email settings');
+      }
+
+      setSuccess('Email settings saved successfully!');
+      // Optional: Clear sensitive fields after successful save
+      setPassword('');
+    } catch (err) {
+      setError(err.message || 'Failed to save email settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <ThemeProvider theme={darkTheme}>
+      {error && (
+        <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+      {success && (
+        <Alert severity="success" onClose={() => setSuccess('')} sx={{ mb: 2 }}>
+          {success}
+        </Alert>
+      )}
       <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
         <Typography variant="h5">Email Settings</Typography>
 
@@ -179,12 +198,6 @@ function EmailSettings() {
             {saving ? 'Saving…' : 'Save Email Settings'}
           </Button>
         </Box>
-
-        {alertInfo.text && (
-          <Alert severity={alertInfo.severity} sx={{ mt: 2 }}>
-            {alertInfo.text}
-          </Alert>
-        )}
       </Box>
     </ThemeProvider>
   );

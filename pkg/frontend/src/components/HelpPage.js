@@ -44,6 +44,9 @@ function HelpPage() {
   return (
     <Box sx={styles.container}>
       <Typography sx={styles.header}>Help & Support</Typography>
+      <Typography sx={{ color: "#CCCCCC", marginBottom: "2rem", textAlign: "center", maxWidth: "800px", margin: "0 auto 2rem" }}>
+        Get assistance with using Caze BizConAI. Find answers to common questions, access documentation, and reach out to our support team.
+      </Typography>
 
       <Paper sx={styles.card}>
         <Box sx={styles.section}>

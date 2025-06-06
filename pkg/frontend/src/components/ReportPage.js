@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 const styles = {
 container: {
@@ -218,6 +219,7 @@ const toggleExpand = (id) => {
   setExpandedId(expandedId === id ? null : id);
 };
 
+// Handle empty states
 if (loading) {
   return (
     <div style={styles.container}>
@@ -230,95 +232,129 @@ return (
   <div style={styles.container}>
     <div style={styles.topBar}>
       <h1 style={styles.header}>Leads Report</h1>
-      <div style={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search by name, email or company"
-          style={styles.searchInput}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-    </div>
-
-
-
-    <div style={styles.filterContainer}>
-      {FILTERS.map((f) => (
-        <button
-          key={f}
-          style={{
-            ...styles.filterButton,
-            ...(filter === f ? styles.filterButtonActive : {}),
-          }}
-          onClick={() => setFilter(f)}
-        >
-          {f} ({leads.filter(lead => f === "All" || (lead["Status (Hot/Warm/Cold/Not Responded)"] || "").toLowerCase().trim() === f.toLowerCase().trim()).length})
-        </button>
-      ))}
-    </div>
-
-    {error && (
-      <div style={{color: '#ff6b6b', marginBottom: '1rem'}}>
-        Error: {error}
-      </div>
-    )}
-
-    {filteredLeads.length === 0 && !loading && (
-      <p>
-        {leads.length === 0 
-          ? "No leads available" 
-          : `No leads found for filter "${filter}" ${searchTerm ? `and search "${searchTerm}"` : ''}`
-        }
+      <p style={{color: '#7A8FA6', marginBottom: '2rem', textAlign: 'center', maxWidth: '800px', margin: '0 auto 2rem'}}>
+        View and analyze your leads' engagement status. Filter by response status, search for specific leads, and access detailed interaction history.
       </p>
+    </div>
+
+    {/* Show guidance message if no leads */}
+    {!loading && leads.length === 0 && (
+      <div style={{
+        margin: "2rem auto",
+        padding: "2rem",
+        textAlign: "center",
+        backgroundColor: "#1F1B24",
+        borderRadius: "12px",
+        maxWidth: "600px"
+      }}>
+        <p style={{marginBottom: "1rem", color: "#CCCCCC"}}>No leads data available. First, add leads in the Settings page.</p>
+        <Link to="/settings" style={{
+          color: "#1E88E5",
+          textDecoration: "none",
+          fontWeight: "600",
+          marginRight: "1rem",
+        }}>Go to Settings</Link>
+      </div>
     )}
 
-    {filteredLeads.map((lead, index) => {
-      console.log(`Rendering lead ${index}:`, lead);
-      return (
-        <div
-          key={lead.ID || index}
-          style={styles.card}
-          onClick={() => toggleExpand(lead.ID || index)}
-        >
-          <div style={styles.headerLine}>
-            <div style={styles.headerItem} title={lead.Name || 'No Name'}>
-              <strong>Name:</strong> {lead.Name || 'No Name'}
-            </div>
-            <div style={styles.headerItem} title={lead.Company || 'No Company'}>
-              <strong>Company:</strong> {lead.Company || 'No Company'}
-            </div>
-            {lead["Private Link"] && (
-              <a
-                href={lead["Private Link"]}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={styles.linkButton}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Chat Link
-              </a>
-            )}
-          </div>
-
-          {expandedId === (lead.ID || index) && (
-            <div style={styles.expandedContent}>
-              <div><strong>Description:</strong> {lead.Description || "-"}</div>
-              <div><strong>Email:</strong> {lead.Email || "-"}</div>
-              <div><strong>Connected:</strong> {lead.Connected ? "Yes" : "No"}</div>
-              <div><strong>Sent Date:</strong> {lead["Sent Date"] || "-"}</div>
-              <div><strong>Source:</strong> {lead.source || "-"}</div>
-              <div>
-                <strong>Chat Summary:</strong>{" "}
-                {(lead["Chat Summary"] !== undefined && !isNaN(lead["Chat Summary"])) ? 
-                  lead["Chat Summary"] : "-"}
-              </div>
-              <div><strong>Status:</strong> {lead["Status (Hot/Warm/Cold/Not Responded)"] || "-"}</div>
-            </div>
-          )}
+    {/* Show search and filters only if we have leads */}
+    {leads.length > 0 && (
+      <>
+        <div style={styles.searchContainer}>
+          <input
+            type="text"
+            placeholder="Search by name, email or company"
+            style={styles.searchInput}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-      );
-    })}
+
+        <div style={styles.filterContainer}>
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              style={{
+                ...styles.filterButton,
+                ...(filter === f ? styles.filterButtonActive : {}),
+              }}
+              onClick={() => setFilter(f)}
+            >
+              {f} ({leads.filter(lead => f === "All" || (lead["Status (Hot/Warm/Cold/Not Responded)"] || "").toLowerCase().trim() === f.toLowerCase().trim()).length})
+            </button>
+          ))}
+        </div>
+
+        {/* Show no results message for filters/search */}
+        {filteredLeads.length === 0 && (
+          <div style={{
+            margin: "2rem auto",
+            padding: "2rem",
+            textAlign: "center",
+            backgroundColor: "#1F1B24",
+            borderRadius: "12px",
+            maxWidth: "600px"
+          }}>
+            <p style={{marginBottom: "1rem", color: "#CCCCCC"}}>
+              No leads found matching your criteria. Try adjusting your search or filter.
+            </p>
+            <Link to="/connect" style={{
+              color: "#1E88E5",
+              textDecoration: "none",
+              fontWeight: "600"
+            }}>View All Leads</Link>
+          </div>
+        )}
+
+        {/* Show leads list */}
+        {filteredLeads.map((lead, index) => {
+          console.log(`Rendering lead ${index}:`, lead);
+          return (
+            <div
+              key={lead.ID || index}
+              style={styles.card}
+              onClick={() => toggleExpand(lead.ID || index)}
+            >
+              <div style={styles.headerLine}>
+                <div style={styles.headerItem} title={lead.Name || 'No Name'}>
+                  <strong>Name:</strong> {lead.Name || 'No Name'}
+                </div>
+                <div style={styles.headerItem} title={lead.Company || 'No Company'}>
+                  <strong>Company:</strong> {lead.Company || 'No Company'}
+                </div>
+                {lead["Private Link"] && (
+                  <a
+                    href={lead["Private Link"]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={styles.linkButton}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Chat Link
+                  </a>
+                )}
+              </div>
+
+              {expandedId === (lead.ID || index) && (
+                <div style={styles.expandedContent}>
+                  <div><strong>Description:</strong> {lead.Description || "-"}</div>
+                  <div><strong>Email:</strong> {lead.Email || "-"}</div>
+                  <div><strong>Connected:</strong> {lead.Connected ? "Yes" : "No"}</div>
+                  <div><strong>Sent Date:</strong> {lead["Sent Date"] || "-"}</div>
+                  <div><strong>Source:</strong> {lead.source || "-"}</div>
+                  <div>
+                    <strong>Chat Summary:</strong>{" "}
+                    {(lead["Chat Summary"] !== undefined && !isNaN(lead["Chat Summary"])) ? 
+                      lead["Chat Summary"] : "-"}
+                  </div>
+                  <div><strong>Status:</strong> {lead["Status (Hot/Warm/Cold/Not Responded)"] || "-"}</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </>
+    )}
   </div>
 );
 }

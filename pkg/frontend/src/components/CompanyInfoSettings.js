@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -73,6 +73,7 @@ function CompanyInfoSettings() {
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const { notification, showSuccess, showError, clearNotification } = useNotification();
+  const fileInputRef = useRef(null);
 
   /* file handlers */
   const handleSelect = (e) => {
@@ -92,32 +93,48 @@ function CompanyInfoSettings() {
   };
 
   /* upload PDFs */
-  const uploadPdfs = async (e) => {
-    e.preventDefault();
-    if (!pdfFiles.length) return;
-    setUploading(true);
+  const uploadPdfs = async (event) => {
+    event.preventDefault();
+    if (!fileInputRef.current.files.length) {
+      showError('Please select files to upload');
+      return;
+    }
 
+    setUploading(true);
     try {
       const formData = new FormData();
-      pdfFiles.forEach((f) => formData.append('files', f));
-      const res = await fetch('/api/upload/company-files', { method: 'POST', body: formData });
-      if (!res.ok) throw new Error();
+      Array.from(fileInputRef.current.files).forEach((file) => {
+        formData.append('files', file);
+      });
 
-      showSuccess('Company PDFs uploaded successfully');
-      setPdfFiles([]);
+      const res = await fetch('/api/upload/company-files', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      showSuccess('Files uploaded successfully! ' + (data.message || ''));
+      fileInputRef.current.value = '';
     } catch (err) {
-      showError('Upload failed');
+      showError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
   };
 
   /* submit URLs */
-  const submitUrls = async (e) => {
-    e.preventDefault();
-    if (!companyUrls.trim()) return;
-    setSubmitting(true);
+  const submitUrls = async (event) => {
+    event.preventDefault();
+    if (!companyUrls.trim()) {
+      showError('Please enter URLs to submit');
+      return;
+    }
 
+    setSubmitting(true);
     try {
       const res = await fetch('/api/upload/company-urls', {
         method: 'POST',
@@ -126,12 +143,16 @@ function CompanyInfoSettings() {
           urls: companyUrls.split('\n').map((u) => u.trim()).filter(Boolean),
         }),
       });
-      if (!res.ok) throw new Error();
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit URLs');
+      }
 
-      showSuccess('Company URLs submitted successfully');
+      showSuccess('Company URLs submitted successfully! ' + (data.message || ''));
       setCompanyUrls('');
     } catch (err) {
-      showError('Submit failed');
+      showError(err.message || 'Failed to submit URLs. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +162,16 @@ function CompanyInfoSettings() {
   return (
     <ThemeProvider theme={darkTheme}>
       {notification.type && (
-        <Alert severity={notification.type} onClose={clearNotification}>
+        <Alert 
+          severity={notification.type} 
+          onClose={clearNotification}
+          sx={{
+            marginBottom: 2,
+            '& .MuiAlert-message': {
+              flex: 1
+            }
+          }}
+        >
           {notification.message}
         </Alert>
       )}
@@ -159,6 +189,7 @@ function CompanyInfoSettings() {
             inputProps={{ accept: '.pdf', multiple: true }}
             sx={{ display: 'none' }}
             onChange={handleSelect}
+            inputRef={fileInputRef}
           />
 
           {/* drag / click zone */}

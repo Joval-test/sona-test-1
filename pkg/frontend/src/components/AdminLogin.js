@@ -97,6 +97,14 @@ function AdminLogin({ onLogin }) {
     <Box sx={styles.container}>
       <Box sx={styles.card}>
         <Typography sx={styles.header}>Admin Login</Typography>
+        <Typography sx={{ 
+          color: '#CCCCCC', 
+          marginBottom: '2rem', 
+          textAlign: 'center',
+          fontSize: '0.9rem'
+        }}>
+          Access the administrative features to review chat histories, moderate conversations, and manage lead statuses.
+        </Typography>
         
         <TextField
           label="API Key"

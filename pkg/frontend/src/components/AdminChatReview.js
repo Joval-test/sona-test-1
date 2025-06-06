@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Typography, Box, TextField, Button, Alert, createTheme, ThemeProvider, CircularProgress, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 
 // Create a dark theme (can be shared across components)
@@ -145,29 +145,58 @@ const darkTheme = createTheme({
 });
 
 function AdminChatReview() {
-  // const { notification, showSuccess, showError } = useNotification();
   const [uuid, setUuid] = useState('');
   const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [status, setStatus] = useState('');
   const [summary, setSummary] = useState('');
   const [contact, setContact] = useState('');
-  const [loadingHistory, setLoadingHistory] = useState(false);
   const [markingLead, setMarkingLead] = useState(false);
 
+  // Auto-dismiss messages
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const fetchHistory = async () => {
+    if (!uuid.trim()) {
+      setError('Please enter a lead UUID');
+      return;
+    }
+
     setLoadingHistory(true);
+    setError('');
     try {
-      const apiKey = localStorage.getItem('admin_api_key');
-      if (!apiKey) throw new Error();
-      
-      const res = await fetch(`/api/admin/chat_history/${uuid}`, {
-        headers: { 'X-API-KEY': apiKey }
-      });
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/admin/chat-history/${uuid}`);
       const data = await res.json();
-      setHistory(data.history || []);
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch chat history');
+      }
+
+      if (!data || data.length === 0) {
+        setHistory([]);
+        setError('No chat history found for this UUID');
+        return;
+      }
+
+      setHistory(data);
+      setSuccess('Chat history loaded successfully');
     } catch (err) {
-      showError();
+      setError(err.message || 'Failed to fetch chat history. Please try again.');
+      setHistory([]);
     } finally {
       setLoadingHistory(false);
     }
@@ -185,9 +214,9 @@ function AdminChatReview() {
         body: JSON.stringify({ uuid, status, summary, contact })
       });
       if (!res.ok) throw new Error();
-      showSuccess();
+      setSuccess('Lead marked successfully');
     } catch (err) {
-      showError();
+      setError(err.message || 'Failed to mark lead. Please try again.');
     } finally {
       setMarkingLead(false);
     }
@@ -195,14 +224,23 @@ function AdminChatReview() {
 
   return (
     <ThemeProvider theme={darkTheme}>
-      <Container maxWidth="sm" sx={{ background: darkTheme.palette.background.default, padding: '2rem', minHeight: '100vh', color: darkTheme.palette.text.primary }}>
-        {notification.type && (
-          <Alert severity={notification.type} onClose={clearNotification}>
-            {notification.message}
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        {error && (
+          <Alert severity="error" onClose={() => setError('')} sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert severity="success" onClose={() => setSuccess('')} sx={{ mb: 3 }}>
+            {success}
           </Alert>
         )}
         
         <Typography variant="h4" component="h2" gutterBottom>Admin Chat Review</Typography>
+        <Typography variant="body1" sx={{ mb: 3, color: 'text.secondary' }}>
+          Review and moderate chat conversations with leads. Access chat history, update lead status, and ensure quality communication.
+        </Typography>
         <Box sx={{ display: 'flex', gap: 2, marginBottom: 3 }}>
           <TextField
             label="Enter Lead UUID"
