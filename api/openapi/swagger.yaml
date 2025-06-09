@@ -33,7 +33,8 @@ components:
         private_link: { type: string, description: "User's private chat link" }
         status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
         chat_summary: { type: string }
-        connected: { type: boolean }    ChatMessage:
+        connected: { type: boolean }
+    ChatMessage:
       type: object
       description: A message in a chat conversation
       properties:
@@ -101,9 +102,20 @@ paths:
                           type: string
                         status:
                           type: string
+                          enum: [success, error]
                         error:
                           type: string
                           nullable: true
+        '400':
+          description: Bad request - Invalid file format or missing files
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error - Embedding or LLM service unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/upload/company-urls:
     post:
       summary: Upload company URLs
@@ -137,9 +149,20 @@ paths:
                           type: string
                         status:
                           type: string
+                          enum: [success, error]
                         error:
                           type: string
                           nullable: true
+        '400':
+          description: Bad request - Invalid URLs or missing URLs
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error - Embedding or LLM service unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/upload/user-files:
     post:
       summary: Upload user (leads) files
@@ -174,29 +197,103 @@ paths:
                           type: string
                         status:
                           type: string
+                          enum: [success, error]
                         leads:
                           type: integer
                           nullable: true
                         error:
                           type: string
                           nullable: true
+        '400':
+          description: Bad request - Invalid file format or missing files
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error - Embedding or LLM service unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/settings:
+    get:
+      summary: Get all settings
+      responses:
+        '200':
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    description: Whether the operation was successful
+                  message:
+                    type: string
+                  email_sender:
+                    type: string
+                  email_host:
+                    type: string
+                  email_port:
+                    type: integer
+                  azure_endpoint:
+                    type: string
+                  azure_api_key:
+                    type: string
+                  azure_api_version:
+                    type: string
+                  azure_deployment:
+                    type: string
+                  azure_embedding_deployment:
+                    type: string
+                  private_link_base:
+                    type: string
+                  private_link_path:
+                    type: string
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
   /api/settings/email:
     post:
       summary: Save email settings
+      description: |
+        Save and validate email settings. The credentials will be validated before saving.
+        - Tests SMTP connection to verify credentials
+        - Returns validation errors if credentials are invalid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - sender
+                - password
               properties:
                 sender:
                   type: string
+                  description: Email sender address
                 password:
                   type: string
+                  description: Email password or app-specific password
+                host:
+                  type: string
+                  description: SMTP host (optional)
+                port:
+                  type: integer
+                  description: SMTP port (optional)
       responses:
         '200':
-          description: Save result
+          description: Settings saved successfully
           content:
             application/json:
               schema:
@@ -206,29 +303,70 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '400':
+          description: Bad request - Invalid or missing data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message (e.g., "Invalid email credentials. Please check your email and password.")
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message
   /api/settings/azure:
     post:
       summary: Save Azure settings
+      description: |
+        Save and validate Azure OpenAI settings. The credentials will be validated before saving.
+        - Tests both embeddings and chat completion connections
+        - Returns validation errors if credentials are invalid or services are unreachable
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - endpoint
+                - api_key
+                - api_version
+                - deployment
+                - embedding_deployment
               properties:
                 endpoint:
                   type: string
+                  description: Azure OpenAI endpoint
                 api_key:
                   type: string
+                  description: Azure OpenAI API key
                 api_version:
                   type: string
+                  description: Azure OpenAI API version
                 deployment:
                   type: string
+                  description: Azure OpenAI deployment name
                 embedding_deployment:
                   type: string
+                  description: Azure OpenAI embedding deployment name
       responses:
         '200':
-          description: Save result
+          description: Settings saved successfully
           content:
             application/json:
               schema:
@@ -238,21 +376,64 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '400':
+          description: Bad request - Invalid or missing data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message (e.g., "Invalid Azure credentials: [specific error]")
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message
   /api/settings/private-link:
     get:
       summary: Get private link config
       responses:
         '200':
-          description: Private link config
+          description: Private link config retrieved successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
                   base:
                     type: string
                   path:
                     type: string
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message
     post:
       summary: Save private link config
       requestBody:
@@ -261,14 +442,19 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - base
+                - path
               properties:
                 base:
                   type: string
+                  description: Base URL for private links
                 path:
                   type: string
+                  description: Path template for private links
       responses:
         '200':
-          description: Save result
+          description: Settings saved successfully
           content:
             application/json:
               schema:
@@ -278,6 +464,32 @@ paths:
                     type: boolean
                   message:
                     type: string
+        '400':
+          description: Bad request - Invalid or missing data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    description: Error message
   /api/leads:
     get:
       summary: Get grouped leads
@@ -314,18 +526,27 @@ paths:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
                   results:
                     type: array
                     items:
                       type: object
                       properties:
                         id: { type: string }
-                        status: { type: string, enum: [sent, error, cooldown, no_content] }
+                        status: { type: string, enum: [sent, error, cooldown, no_content, embedding_error, llm_error] }
+                        error: { type: string, nullable: true }
         '400':
-          description: Bad request
+          description: Bad request - Invalid lead IDs or missing lead IDs
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }  /api/user_chat/{uuid}:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error - Email service or LLM service unavailable
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/user_chat/{uuid}:
     get:
       summary: Get chat history for a user
       parameters:
@@ -439,37 +660,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-  /api/settings:
-    get:
-      summary: Get all settings
-      responses:
-        '200':
-          description: Settings
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  email:
-                    type: object
-                    properties:
-                      sender:
-                        type: string
-                      password:
-                        type: string
-                  azure:
-                    type: object
-                    properties:
-                      endpoint:
-                        type: string
-                      api_key:
-                        type: string
-                      api_version:
-                        type: string
-                      deployment:
-                        type: string
-                      embedding_deployment:
-                        type: string  /api/clear-all:
+  /api/clear-all:
     post:
       summary: Clear all data (chats, files, and leads)
       description: Clears all stored data including chat histories, uploaded files, and lead information
@@ -558,7 +749,8 @@ paths:
                       properties:
                         Name: { type: string }
                         Company: { type: string }
-                        Email: { type: string }                        ID: { type: string }
+                        Email: { type: string }
+                        ID: { type: string }
                         Sent Date: { type: string }
                         Chat Summary: { type: string }
                         Private Link: { type: string }

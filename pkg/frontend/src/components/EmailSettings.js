@@ -114,8 +114,7 @@ const darkTheme = createTheme({
 
 /* ----------  COMPONENT  ---------- */
 function EmailSettings() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState({ sender: '', password: '' });
   const [alertInfo, setAlertInfo] = useState({ text: '', severity: 'info' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -131,17 +130,17 @@ function EmailSettings() {
       const res = await fetch('/api/settings/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sender: email, password }),
+        body: JSON.stringify({ sender: email.sender, password: email.password }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to save email settings');
+        throw new Error(data.message || 'Failed to save email settings');
       }
 
-      setSuccess('Email settings saved successfully!');
+      setSuccess('Email settings validated and saved successfully!');
       // Optional: Clear sensitive fields after successful save
-      setPassword('');
+      setEmail({ sender: '', password: '' });
     } catch (err) {
       setError(err.message || 'Failed to save email settings. Please try again.');
     } finally {
@@ -163,27 +162,35 @@ function EmailSettings() {
       )}
       <Box component="form" onSubmit={handleSubmit} sx={{ mb: 3 }}>
         <Typography variant="h5">Email Settings</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Your credentials will be validated before saving. This may take a few seconds.
+        </Typography>
 
         <TextField
           label="Sender Email"
           type="email"
           placeholder="Enter sender email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={email.sender}
+          onChange={(e) => setEmail({ ...email, sender: e.target.value })}
           fullWidth
           variant="outlined"
           size="small"
+          required
+          error={!!error}
+          helperText={error ? "Please check your email address" : ""}
         />
 
         <TextField
           label="Email Password"
           type="password"
-          placeholder="Enter email password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          value={email.password}
+          onChange={(e) => setEmail({ ...email, password: e.target.value })}
           fullWidth
-          variant="outlined"
           size="small"
+          sx={{ mb: 2 }}
+          required
+          error={!!error}
+          helperText={error ? "Please check your password" : ""}
         />
 
         {/* Right-aligned button */}
@@ -195,7 +202,7 @@ function EmailSettings() {
             disabled={saving}
             startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {saving ? 'Saving…' : 'Save Email Settings'}
+            {saving ? 'Validating & Saving...' : 'Save Email Settings'}
           </Button>
         </Box>
       </Box>

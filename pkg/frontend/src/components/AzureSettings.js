@@ -128,23 +128,56 @@ function AzureSettings() {
   });
   const [alertState, setAlertState] = useState({ text: '', severity: 'info' });
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   const handleAzureSettings = async (e) => {
     e.preventDefault();
     setSaving(true);
     setAlertState({ text: '', severity: 'info' });
-    const res = await fetch('/api/settings/azure', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(azure),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setAlertState({ text: 'Azure settings saved successfully', severity: 'success' });
-    } else {
-      setAlertState({ text: data.message || 'Failed to save Azure settings', severity: 'error' });
+    setErrors({});
+
+    try {
+      const res = await fetch('/api/settings/azure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(azure),
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save Azure settings');
+      }
+      
+      setAlertState({ 
+        text: 'Azure settings validated and saved successfully!', 
+        severity: 'success' 
+      });
+      // Clear sensitive fields after successful save
+      setAzure({
+        endpoint: '',
+        api_key: '',
+        api_version: '',
+        deployment: '',
+        embedding_deployment: '',
+      });
+    } catch (err) {
+      setAlertState({ 
+        text: err.message || 'Failed to save Azure settings. Please try again.', 
+        severity: 'error' 
+      });
+      // Set field-level errors if available
+      if (err.message.includes('endpoint')) {
+        setErrors(prev => ({ ...prev, endpoint: true }));
+      }
+      if (err.message.includes('API key')) {
+        setErrors(prev => ({ ...prev, api_key: true }));
+      }
+      if (err.message.includes('deployment')) {
+        setErrors(prev => ({ ...prev, deployment: true, embedding_deployment: true }));
+      }
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -152,6 +185,9 @@ function AzureSettings() {
       <Box component="form" onSubmit={handleAzureSettings} sx={{ marginBottom: 3 }}>
         <Typography variant="h5" component="h3">
           Azure Settings
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Your credentials will be validated before saving. This may take a few seconds.
         </Typography>
 
         <TextField
@@ -163,6 +199,9 @@ function AzureSettings() {
           fullWidth
           margin="normal"
           variant="outlined"
+          required
+          error={errors.endpoint}
+          helperText={errors.endpoint ? "Please check your endpoint URL" : ""}
           InputProps={{
             style: { textAlign: 'center' },
           }}
@@ -172,19 +211,15 @@ function AzureSettings() {
         />
         <TextField
           label="API Key"
-          type="text"
-          placeholder="Enter your API key"
+          type="password"
           value={azure.api_key}
           onChange={(e) => setAzure({ ...azure, api_key: e.target.value })}
           fullWidth
-          margin="normal"
-          variant="outlined"
-          InputProps={{
-            style: { textAlign: 'center' },
-          }}
-          InputLabelProps={{
-            shrink: true,
-          }}
+          size="small"
+          required
+          error={errors.api_key}
+          helperText={errors.api_key ? "Please check your API key" : ""}
+          sx={{ mb: 2 }}
         />
         <TextField
           label="API Version"
@@ -195,6 +230,7 @@ function AzureSettings() {
           fullWidth
           margin="normal"
           variant="outlined"
+          required
           InputProps={{
             style: { textAlign: 'center' },
           }}
@@ -211,6 +247,9 @@ function AzureSettings() {
           fullWidth
           margin="normal"
           variant="outlined"
+          required
+          error={errors.deployment}
+          helperText={errors.deployment ? "Please check your deployment name" : ""}
           InputProps={{
             style: { textAlign: 'center' },
           }}
@@ -227,6 +266,9 @@ function AzureSettings() {
           fullWidth
           margin="normal"
           variant="outlined"
+          required
+          error={errors.embedding_deployment}
+          helperText={errors.embedding_deployment ? "Please check your embedding deployment name" : ""}
           InputProps={{
             style: { textAlign: 'center' },
           }}
@@ -235,28 +277,28 @@ function AzureSettings() {
           }}
         />
 
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3 }}>
-        <Button
-          type="submit"
-          variant="contained"
-          disabled={saving}
-          startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}
-          sx={{
-            backgroundImage: 'linear-gradient(90deg, #ffffff, #1E88E5)', // white to blue
-            color: '#000000', // black text
-            fontWeight: 700,
-            borderRadius: 2,
-            textTransform: 'none',
-            boxShadow: 'none',
-            paddingX: 3,
-            '&:hover': {
-              opacity: 0.9,
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3 }}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null}
+            sx={{
               backgroundImage: 'linear-gradient(90deg, #ffffff, #1E88E5)',
-            },
-          }}
-        >
-          {saving ? 'Saving...' : 'Save Azure Settings'}
-        </Button>
+              color: '#000000',
+              fontWeight: 700,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: 'none',
+              paddingX: 3,
+              '&:hover': {
+                opacity: 0.9,
+                backgroundImage: 'linear-gradient(90deg, #ffffff, #1E88E5)',
+              },
+            }}
+          >
+            {saving ? 'Validating & Saving...' : 'Save Azure Settings'}
+          </Button>
         </Box>
 
         {alertState.text && (

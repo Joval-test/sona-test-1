@@ -344,8 +344,7 @@ return (
                   <div><strong>Source:</strong> {lead.source || "-"}</div>
                   <div>
                     <strong>Chat Summary:</strong>{" "}
-                    {(lead["Chat Summary"] !== undefined && !isNaN(lead["Chat Summary"])) ? 
-                      lead["Chat Summary"] : "-"}
+                    {lead["Chat Summary"] ? lead["Chat Summary"] : "-"}
                   </div>
                   <div><strong>Status:</strong> {lead["Status (Hot/Warm/Cold/Not Responded)"] || "-"}</div>
                 </div>

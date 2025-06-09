@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import ConnectDashboard from './components/ConnectDashboard';
 import SettingsPage from './components/SettingsPage';
@@ -42,15 +42,36 @@ const sidebarStyles = {
   navButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    padding: '12px 16px',
+    gap: '10px',
+    padding: '10px 14px',
     textDecoration: 'none',
     color: '#000000',
-    borderRadius: '8px',
-    marginBottom: '8px',
-    transition: 'all 0.2s ease-in-out',
-    fontWeight: 500
-  },  mainContentShift: {
+    borderRadius: '12px',
+    marginBottom: '10px',
+    background: '#F5F7FA',
+    boxShadow: '0 2px 8px rgba(33, 150, 243, 0.08)',
+    transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
+    fontWeight: 500,
+    fontSize: '0.98rem',
+    border: '2px solid transparent',
+    cursor: 'pointer',
+    minHeight: '36px',
+  },
+  navButtonHover: {
+    background: '#E3F2FD',
+    boxShadow: '0 4px 16px rgba(33, 150, 243, 0.16)',
+    color: '#1976D2',
+    border: '2px solid #2196F3',
+    transform: 'translateY(-1px) scale(1.01)',
+  },
+  navButtonActive: {
+    background: '#2196F3',
+    color: '#fff',
+    boxShadow: '0 6px 24px rgba(33, 150, 243, 0.24)',
+    border: '2px solid #1976D2',
+    transform: 'scale(1.02)',
+  },
+  mainContentShift: {
     marginLeft: '312px',  // 280px + padding
     transition: 'all 0.3s ease-in-out',
     width: 'calc(100% - 312px)',
@@ -111,7 +132,7 @@ function NavButton({ to, icon: Icon, children, isActive }) {
       onMouseLeave={() => setIsHovered(false)}
     >
       <Icon sx={{ fontSize: '20px' }} />
-      <Typography variant="body1" sx={{ fontWeight: 'inherit' }}>{children}</Typography>
+      <Typography variant="body1" sx={{ fontWeight: 'inherit', fontSize: '0.98rem' }}>{children}</Typography>
     </Link>
   );
 }
@@ -119,15 +140,19 @@ function NavButton({ to, icon: Icon, children, isActive }) {
 function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
   const isUserChat = location.pathname === '/chat';
-  
-  if (isUserChat) {
+  if (isUserChat || !isOpen) {
     return null;
   }
-
   return (
     <Box sx={{
       ...sidebarStyles.container,
-      ...(isOpen ? {} : sidebarStyles.containerClosed),
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      minHeight: '100vh',
+      maxHeight: '100vh',
+      overflow: 'hidden',
     }}>
       <Box sx={sidebarStyles.logo}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -135,10 +160,11 @@ function Sidebar({ isOpen, onToggle }) {
             src="/images/logo_transparent.png" 
             alt="Product Logo" 
             style={{ 
-              width: '200px',
+              width: isOpen ? '200px' : '48px',
               height: 'auto',
               objectFit: 'contain',
-              maxWidth: '100%'
+              maxWidth: '100%',
+              transition: 'width 0.2s',
             }} 
           />
         </Link>
@@ -159,17 +185,24 @@ function Sidebar({ isOpen, onToggle }) {
           </NavButton>
         </Box>
       </nav>
-      <Box sx={{ 
-        marginTop: 'auto', 
-        padding: '20px 0', 
-        textAlign: 'center'
+      <Box sx={{
+        marginTop: 'auto',
+        padding: '20px 0',
+        textAlign: 'center',
+        background: 'transparent',
       }}>
         <img 
           src="/images/caze_labs_logo.png" 
           alt="Caze Labs Logo" 
           style={{ 
-            height: '40px', 
-            opacity: 0.8 
+            height: isOpen ? '40px' : '32px',
+            opacity: 0.8,
+            transition: 'height 0.2s',
+            width: isOpen ? 'auto' : '32px',
+            objectFit: 'contain',
+            display: 'inline-block',
+            margin: 0,
+            padding: 0,
           }} 
         />
       </Box>
@@ -217,6 +250,15 @@ function App() {
   const location = useLocation();
   const isUserChat = location.pathname === '/chat';
 
+  // Collapse sidebar on landing page, expand on other pages
+  useEffect(() => {
+    if (location.pathname === '/') {
+      setIsSidebarOpen(false);
+    } else {
+      setIsSidebarOpen(true);
+    }
+  }, [location.pathname]);
+
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
@@ -239,7 +281,11 @@ function App() {
           overflowY: 'auto',
           minHeight: 'calc(100vh - 64px)',
           padding: isUserChat ? 0 : undefined,
-          ...(isSidebarOpen ? sidebarStyles.mainContentShift : sidebarStyles.mainContentFull),
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          transition: 'margin-left 0.3s',
         }}>
           <Routes>
             <Route path="/connect" element={<ConnectDashboard />} />

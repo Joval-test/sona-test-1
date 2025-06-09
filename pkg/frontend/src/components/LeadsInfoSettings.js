@@ -83,14 +83,22 @@ function LeadsInfoSettings() {
     });
     const data = await res.json();
 
-    if (res.ok) {
-      setAlertState({ text: 'Files uploaded successfully', severity: 'success' });
-    } else {
-      setAlertState({ text: data.message || 'Failed to upload files', severity: 'error' });
+    if (!res.ok) {
+      throw new Error(data.error || 'Upload failed');
     }
 
-    setUploading(false);
+    // Show success message with details
+    const successCount = data.results.filter(r => r.status === 'success').length;
+    const errorCount = data.results.filter(r => r.status === 'error').length;
+    const totalLeads = data.results.reduce((sum, r) => sum + (r.leads || 0), 0);
+    let message = `Successfully processed ${successCount} file${successCount !== 1 ? 's' : ''} with ${totalLeads} leads`;
+    if (errorCount > 0) {
+      message += ` (${errorCount} file${errorCount !== 1 ? 's' : ''} failed)`;
+    }
+    showSuccess(message);
     setUserFiles([]);
+
+    setUploading(false);
   };
 
   const handleDrop = (e) => {

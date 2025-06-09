@@ -28,9 +28,17 @@ def handle_user_files(files):
                     os.remove(file_path)
                 except Exception as del_err:
                     print(f"Warning: Could not delete uploaded file {file_path}: {del_err}")
-                results.append({'file': file.filename, 'status': 'success', 'leads': len(valid_rows)})
+                results.append({
+                    'file': file.filename,
+                    'status': 'success',
+                    'message': f'Successfully processed {len(valid_rows)} leads from {file.filename}'
+                })
             else:
-                results.append({'file': file.filename, 'status': 'no_valid_rows'})
+                results.append({
+                    'file': file.filename,
+                    'status': 'error',
+                    'error': 'No valid leads found in the file'
+                })
         except Exception as e:
             results.append({'file': file.filename, 'status': 'error', 'error': str(e)})
     return {'success': True, 'results': results}

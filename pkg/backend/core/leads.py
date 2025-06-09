@@ -50,111 +50,198 @@ def get_grouped_leads():
 @stage_log(1)
 def send_emails_to_leads(lead_ids):
     if not os.path.exists(MASTER_PATH):
-        return {'results': [], 'error': 'No leads file found'}
-    df = pd.read_excel(MASTER_PATH)
+        return {'success': False, 'error': 'No leads file found', 'results': []}
+        
+    try:
+        df = pd.read_excel(MASTER_PATH)
+    except Exception as e:
+        return {'success': False, 'error': f'Failed to read leads file: {str(e)}', 'results': []}
+        
     results = []
     sender_email = os.environ.get('EMAIL_SENDER', '')
     sender_password = os.environ.get('EMAIL_PASSWORD', '')
+    
+    if not sender_email or not sender_password:
+        return {'success': False, 'error': 'Email settings not configured', 'results': []}
+        
     now = datetime.now()
+    
     # Setup LLM, embeddings, and Chroma
-    azure_endpoint = os.environ.get('AZURE_ENDPOINT', '')
-    azure_deployment = os.environ.get('AZURE_DEPLOYMENT', '')
-    azure_api_version = os.environ.get('AZURE_API_VERSION', '')
-    azure_api_key = os.environ.get('AZURE_API_KEY', '')
-    azure_embedding_deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
-    embeddings = AzureOpenAIEmbeddings(
-        azure_endpoint=azure_endpoint,
-        azure_deployment=azure_embedding_deployment,
-        openai_api_version=azure_api_version,
-        api_key=azure_api_key
-    )
-    llm = AzureChatOpenAI(
-        azure_endpoint=azure_endpoint,
-        azure_deployment=azure_deployment,
-        api_version=azure_api_version,
-        api_key=azure_api_key,
-        temperature=0.1
-    )
-    company_collection = Chroma(
-        collection_name="company_info_store",
-        persist_directory=PERSIST_DIRECTORY,
-        embedding_function=embeddings,
-        collection_metadata={"hnsw:space": "cosine"}
-    )
+    try:
+        azure_endpoint = os.environ.get('AZURE_ENDPOINT', '')
+        azure_deployment = os.environ.get('AZURE_DEPLOYMENT', '')
+        azure_api_version = os.environ.get('AZURE_API_VERSION', '')
+        azure_api_key = os.environ.get('AZURE_API_KEY', '')
+        azure_embedding_deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
+        
+        if not all([azure_endpoint, azure_deployment, azure_api_version, azure_api_key, azure_embedding_deployment]):
+            return {'success': False, 'error': 'Azure settings not configured', 'results': []}
+            
+        embeddings = AzureOpenAIEmbeddings(
+            azure_endpoint=azure_endpoint,
+            azure_deployment=azure_embedding_deployment,
+            openai_api_version=azure_api_version,
+            api_key=azure_api_key
+        )
+        llm = AzureChatOpenAI(
+            azure_endpoint=azure_endpoint,
+            azure_deployment=azure_deployment,
+            api_version=azure_api_version,
+            api_key=azure_api_key,
+            temperature=0.1
+        )
+        company_collection = Chroma(
+            collection_name="company_info_store",
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embeddings,
+            collection_metadata={"hnsw:space": "cosine"}
+        )
+    except Exception as e:
+        return {'success': False, 'error': f'Failed to initialize Azure services: {str(e)}', 'results': []}
+
     # --- REPORT LOGIC ---
     report_columns = [
         'ID', 'Name', 'Company', 'Email', 'Description',
         'Private Link', 'Sent Date', 'Chat Summary',
         'Status (Hot/Warm/Cold/Not Responded)', 'source'
     ]
-    if os.path.exists(REPORT_PATH):
-        report_df = pd.read_excel(REPORT_PATH)
-    else:
-        report_df = pd.DataFrame(columns=report_columns)
-        report_df.to_excel(REPORT_PATH, index=False)
+    try:
+        if os.path.exists(REPORT_PATH):
+            report_df = pd.read_excel(REPORT_PATH)
+        else:
+            report_df = pd.DataFrame(columns=report_columns)
+            report_df.to_excel(REPORT_PATH, index=False)
+    except Exception as e:
+        return {'success': False, 'error': f'Failed to initialize report: {str(e)}', 'results': []}
     # --- END REPORT LOGIC ---
+    
+    has_error = False
     for idx, row in df.iterrows():
         if str(row['ID']) not in [str(i) for i in lead_ids]:
             continue
-        last_sent = row.get('Last Email Sent', pd.NaT)
-        if pd.notna(last_sent):
-            last_sent_time = pd.to_datetime(last_sent)
-            if now - last_sent_time < timedelta(hours=COOLDOWN_HOURS):
-                results.append({'id': row['ID'], 'status': 'cooldown'})
+            
+        try:
+            last_sent = row.get('Last Email Sent', pd.NaT)
+            if pd.notna(last_sent):
+                last_sent_time = pd.to_datetime(last_sent)
+                if now - last_sent_time < timedelta(hours=COOLDOWN_HOURS):
+                    results.append({'id': row['ID'], 'status': 'cooldown'})
+                    continue
+                    
+            # Generate private link
+            lead_id = str(uuid.uuid4())
+            private_link = generate_private_link(lead_id)
+            
+            # Prepare user info for LLM
+            user_info = {
+                'name': row['Name'],
+                'company': row['Company'],
+                'email': row['Email']
+            }
+            
+            # Prepare email content using LLM and Chroma
+            try:
+                message_content = generate_email_content(company_collection, user_info, llm, embeddings, private_link)
+                if not message_content:
+                    results.append({
+                        'id': row['ID'],
+                        'status': 'no_content',
+                        'error': 'Failed to generate email content'
+                    })
+                    has_error = True
+                    continue
+            except Exception as e:
+                results.append({
+                    'id': row['ID'],
+                    'status': 'llm_error',
+                    'error': f'LLM error: {str(e)}'
+                })
+                has_error = True
                 continue
-        # Generate private link
-        lead_id = str(uuid.uuid4())
-        private_link = generate_private_link(lead_id)
-        # Prepare user info for LLM
-        user_info = {
-            'name': row['Name'],
-            'company': row['Company'],
-            'email': row['Email']
-        }
-        # Prepare email content using LLM and Chroma
-        message_content = generate_email_content(company_collection, user_info, llm, embeddings, private_link)
-        if not message_content:
-            results.append({'id': row['ID'], 'status': 'no_content'})
-            continue
-        # Send email
-        success = send_email_real(sender_email, sender_password, row['Email'], "Invitation to Chat with Caze BizConAI", message_content)
-        if success:
-            # Increment email count
-            if 'Email Sent Count' in df.columns:
-                df.at[idx, 'Email Sent Count'] = int(df.at[idx, 'Email Sent Count'] or 0) + 1
-            elif 'email_count' in df.columns:
-                df.at[idx, 'email_count'] = int(df.at[idx, 'email_count'] or 0) + 1
+                
+            # Send email
+            try:
+                success = send_email_real(sender_email, sender_password, row['Email'], "Invitation to Chat with Caze BizConAI", message_content)
+                if success:
+                    # Increment email count
+                    if 'Email Sent Count' in df.columns:
+                        df.at[idx, 'Email Sent Count'] = int(df.at[idx, 'Email Sent Count'] or 0) + 1
+                    elif 'email_count' in df.columns:
+                        df.at[idx, 'email_count'] = int(df.at[idx, 'email_count'] or 0) + 1
 
-            df.at[idx, 'Last Email Sent'] = now
-            # --- REPORT LOGIC ---
-            # Check if lead already exists in report
-            existing_lead = report_df[report_df['Email'] == row['Email']]
-            if not existing_lead.empty:
-                # Update sent date
-                report_df.loc[report_df['Email'] == row['Email'], 'Sent Date'] = now
-            else:
-                # Add new lead to report
-                new_lead = {
-                    'ID': lead_id,
-                    'Name': row['Name'],
-                    'Company': row['Company'],
-                    'Email': row['Email'],
-                    'Description': row['Description'],
-                    'Private Link': private_link,
-                    'Sent Date': now,
-                    'Chat Summary': '',
-                    'Status (Hot/Warm/Cold/Not Responded)': 'Not Responded',
-                    'source': row.get('source', ''),
-                    'Connected': row.get('Connected', False)
-                }
-                report_df = pd.concat([report_df, pd.DataFrame([new_lead])], ignore_index=True)
-            report_df.to_excel(REPORT_PATH, index=False)
-            # --- END REPORT LOGIC ---
-            results.append({'id': row['ID'], 'status': 'sent'})
-        else:
-            results.append({'id': row['ID'], 'status': 'error'})
-    df.to_excel(MASTER_PATH, index=False)
-    return {'results': results}
+                    df.at[idx, 'Last Email Sent'] = now
+                    
+                    # --- REPORT LOGIC ---
+                    try:
+                        # Check if lead already exists in report
+                        existing_lead = report_df[report_df['Email'] == row['Email']]
+                        if not existing_lead.empty:
+                            # Update sent date
+                            report_df.loc[report_df['Email'] == row['Email'], 'Sent Date'] = now
+                        else:
+                            # Add new lead to report
+                            new_lead = {
+                                'ID': lead_id,
+                                'Name': row['Name'],
+                                'Company': row['Company'],
+                                'Email': row['Email'],
+                                'Description': row['Description'],
+                                'Private Link': private_link,
+                                'Sent Date': now,
+                                'Chat Summary': '',
+                                'Status (Hot/Warm/Cold/Not Responded)': 'Not Responded',
+                                'source': row.get('source', ''),
+                                'Connected': row.get('Connected', False)
+                            }
+                            report_df = pd.concat([report_df, pd.DataFrame([new_lead])], ignore_index=True)
+                        report_df.to_excel(REPORT_PATH, index=False)
+                    except Exception as e:
+                        results.append({
+                            'id': row['ID'],
+                            'status': 'error',
+                            'error': f'Failed to update report: {str(e)}'
+                        })
+                        has_error = True
+                        continue
+                    # --- END REPORT LOGIC ---
+                    
+                    results.append({'id': row['ID'], 'status': 'sent'})
+                else:
+                    results.append({
+                        'id': row['ID'],
+                        'status': 'error',
+                        'error': 'Failed to send email'
+                    })
+                    has_error = True
+            except Exception as e:
+                results.append({
+                    'id': row['ID'],
+                    'status': 'error',
+                    'error': f'Email sending error: {str(e)}'
+                })
+                has_error = True
+                
+        except Exception as e:
+            results.append({
+                'id': row['ID'],
+                'status': 'error',
+                'error': f'Processing error: {str(e)}'
+            })
+            has_error = True
+            
+    try:
+        df.to_excel(MASTER_PATH, index=False)
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Failed to save leads file: {str(e)}',
+            'results': results
+        }
+        
+    return {
+        'success': not has_error,
+        'results': results
+    }
 
 @stage_log(1)
 def generate_email_content(company_collection, user_info, llm, embeddings, product_link):

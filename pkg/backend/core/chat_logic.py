@@ -59,9 +59,9 @@ def update_report(uuid, chat_history, llm):
         
     # Generate summary
     messages_content = [f"{msg['role']}: {msg['message']}" for msg in chat_history]
-    summary_prompt = f"Summarize this conversation in 50 words, including any contact details: {messages_content}"
+    summary_prompt = f"Summarize this conversation in 50 words, including any contact details and key points discussed: {messages_content}"
     summary_msg = HumanMessage(content=summary_prompt)
-    summary = llm.invoke([summary_msg]).content
+    summary = llm.invoke([summary_msg]).content.strip()
     
     # Determine interest status
     status_prompt = f"Based on this conversation {messages_content}, categorize interest as 'Hot' (very interested), 'Warm' (partially interested), or 'Cold' (not interested). Reply with one word only."
@@ -71,11 +71,13 @@ def update_report(uuid, chat_history, llm):
     # Update Excel file
     df = pd.read_excel(REPORT_PATH)
     mask = df['ID'].astype(str) == str(uuid)
-    df.loc[mask, 'Chat Summary'] = summary
-    df.loc[mask, 'Status (Hot/Warm/Cold/Not Responded)'] = status
-    df.loc[mask, 'Connected'] = True
-    df.to_excel(REPORT_PATH, index=False)
-    return True
+    if mask.any():
+        df.loc[mask, 'Chat Summary'] = summary
+        df.loc[mask, 'Status (Hot/Warm/Cold/Not Responded)'] = status
+        df.loc[mask, 'Connected'] = True
+        df.to_excel(REPORT_PATH, index=False)
+        return True
+    return False
 
 def generate_user_chat_response(uuid, chat_history):
     user_info = get_user_info(uuid)

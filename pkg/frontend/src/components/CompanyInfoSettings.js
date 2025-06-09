@@ -117,7 +117,14 @@ function CompanyInfoSettings() {
         throw new Error(data.error || 'Upload failed');
       }
 
-      showSuccess('Files uploaded successfully! ' + (data.message || ''));
+      // Show success message with details
+      const successCount = data.results.filter(r => r.status === 'success').length;
+      const errorCount = data.results.filter(r => r.status === 'error').length;
+      let message = `Successfully processed ${successCount} file${successCount !== 1 ? 's' : ''}`;
+      if (errorCount > 0) {
+        message += ` (${errorCount} file${errorCount !== 1 ? 's' : ''} failed)`;
+      }
+      showSuccess(message);
       fileInputRef.current.value = '';
     } catch (err) {
       showError(err.message || 'Upload failed. Please try again.');
@@ -149,7 +156,14 @@ function CompanyInfoSettings() {
         throw new Error(data.error || 'Failed to submit URLs');
       }
 
-      showSuccess('Company URLs submitted successfully! ' + (data.message || ''));
+      // Show success message with details
+      const successCount = data.results.filter(r => r.status === 'success').length;
+      const errorCount = data.results.filter(r => r.status === 'error').length;
+      let message = `Successfully processed ${successCount} URL${successCount !== 1 ? 's' : ''}`;
+      if (errorCount > 0) {
+        message += ` (${errorCount} URL${errorCount !== 1 ? 's' : ''} failed)`;
+      }
+      showSuccess(message);
       setCompanyUrls('');
     } catch (err) {
       showError(err.message || 'Failed to submit URLs. Please try again.');

@@ -83,25 +83,52 @@ def create_app():
 
     @app.route("/api/send_emails", methods=["POST"])
     def send_emails():
-        # logger.info("API: /api/send_emails called")
-        lead_ids = (request.json or {}).get("lead_ids", [])
-        return jsonify(send_emails_to_leads(lead_ids))
+        try:
+            if not request.json or not request.json.get("lead_ids"):
+                return jsonify({"error": "No lead IDs provided"}), 400
+            result = send_emails_to_leads(request.json.get("lead_ids", []))
+            if not result.get('success'):
+                return jsonify(result), 500
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/company-files", methods=["POST"])
     def upload_company_files():
-        # logger.info("API: /api/upload/company-files called")
-        return jsonify(handle_company_files(request.files.getlist("files")))
+        try:
+            if not request.files:
+                return jsonify({"error": "No files provided"}), 400
+            result = handle_company_files(request.files.getlist("files"))
+            if not result.get('success'):
+                return jsonify(result), 500
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/company-urls", methods=["POST"])
     def upload_company_urls():
-        # logger.info("API: /api/upload/company-urls called")
-        return jsonify(handle_company_urls(request.json.get("urls", [])))
+        try:
+            if not request.json or not request.json.get("urls"):
+                return jsonify({"error": "No URLs provided"}), 400
+            result = handle_company_urls(request.json.get("urls", []))
+            if not result.get('success'):
+                return jsonify(result), 500
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/user-files", methods=["POST"])
     #@stage_log(1)
     def upload_user_files():
-        # logger.info("API: /api/upload/user-files called")
-        return jsonify(handle_user_files(request.files.getlist("files")))
+        try:
+            if not request.files:
+                return jsonify({"error": "No files provided"}), 400
+            result = handle_user_files(request.files.getlist("files"))
+            if not result.get('success'):
+                return jsonify(result), 500
+            return jsonify(result)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
     @app.route("/api/settings", methods=["GET"])
     def api_get_settings():

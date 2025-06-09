@@ -53,11 +53,13 @@ function PrivateLinkSettings() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    fetch('/api/settings')
+    fetch('/api/settings/private-link')
       .then(res => res.json())
       .then(data => {
-        setBase(data.private_link_base || '');
-        setPath(data.private_link_path || '');
+        if (data && data.config) {
+          setBase(data.config.base || '');
+          setPath(data.config.path || '');
+        }
       })
       .catch(error => {
         console.error('Error fetching settings:', error);
@@ -73,7 +75,7 @@ function PrivateLinkSettings() {
       body: JSON.stringify({ base, path }),
     });
     const data = await res.json();
-    setMessage(data.message);
+    setMessage({ text: data.message, success: data.success });
   };
 
   return (
@@ -143,7 +145,11 @@ function PrivateLinkSettings() {
             </Button>
           </Box>
 
-          {message && <Alert severity="success" sx={{ mt: 2 }}>{message}</Alert>}
+          {message && (
+            <Alert severity={message.success === false ? 'error' : 'success'} sx={{ mt: 2 }}>
+              {message.text}
+            </Alert>
+          )}
         </Box>
       </Box>
     </ThemeProvider>
