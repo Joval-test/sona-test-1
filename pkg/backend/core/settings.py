@@ -12,8 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import smtplib
-from langchain.vectorstores import AzureOpenAIEmbeddings
-from langchain.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger(__name__)
 
