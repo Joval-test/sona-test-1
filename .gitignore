@@ -25,7 +25,7 @@ chroma_storage/
 *.env
 
 # Configuration files
-*.toml
+
 
 # Virtual environment files
 .venv/

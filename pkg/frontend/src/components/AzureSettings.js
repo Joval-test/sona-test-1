@@ -220,6 +220,14 @@ function AzureSettings() {
           error={errors.api_key}
           helperText={errors.api_key ? "Please check your API key" : ""}
           sx={{ mb: 2 }}
+          InputProps={{
+            style: { textAlign: 'center' },
+            // Add autocomplete="new-password" to prevent browser from auto-filling
+            autoComplete: "new-password",
+          }}
+          InputLabelProps={{
+            shrink: true,
+          }}
         />
         <TextField
           label="API Version"

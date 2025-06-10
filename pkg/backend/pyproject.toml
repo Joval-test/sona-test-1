@@ -1,0 +1,28 @@
+[project]
+name = "caze_BizConAI"
+version = "0.2.0"
+description = ""
+authors = [
+    {name = "Your Name",email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = "3.12.10"
+dependencies = [
+    "flask (>=3.1.1,<4.0.0)",
+    "flask-cors (>=6.0.0,<7.0.0)",
+    "langchain (>=0.3.25,<0.4.0)",
+    "langchain-docling (>=0.2.0,<0.3.0)",
+    "langchain-core (>=0.3.64,<0.4.0)",
+    "langchain-chroma (>=0.2.4,<0.3.0)",
+    "langchain-openai (>=0.3.21,<0.4.0)",
+    "python-dotenv (>=1.1.0,<2.0.0)",
+    "pandas (>=2.3.0,<3.0.0)",
+    "beautifulsoup4 (>=4.13.4,<5.0.0)",
+    "requests (>=2.32.4,<3.0.0)",
+    "openpyxl (>=3.1.5,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

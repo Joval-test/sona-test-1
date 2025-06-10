@@ -33,7 +33,7 @@ def derive_key(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
 
 def get_encryption_key() -> tuple[Fernet, bytes]:
     """Get or create encryption key"""
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backend', '.env')
     
     # Load existing key if available
     if os.path.exists(env_file):
@@ -83,7 +83,7 @@ def decrypt_value(value: str) -> str:
 
 def ensure_env_file() -> None:
     """Create .env file if it doesn't exist"""
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+    env_file = os.path.join(os.path.dirname('backend'), '.env')
     
     if not os.path.exists(env_file):
         logger.info("Creating .env file with default values")
@@ -99,17 +99,6 @@ AZURE_OPENAI_ENDPOINT=
 AZURE_OPENAI_API_KEY=
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
-
-# Private Link Settings
-PRIVATE_LINK_ENABLED=false
-PRIVATE_LINK_SUBSCRIPTION_ID=
-PRIVATE_LINK_RESOURCE_GROUP=
-PRIVATE_LINK_LOCATION=
-PRIVATE_LINK_VNET_NAME=
-PRIVATE_LINK_SUBNET_NAME=
-PRIVATE_LINK_SERVICE_NAME=
-PRIVATE_LINK_DNS_ZONE_NAME=
-PRIVATE_LINK_DNS_ZONE_RESOURCE_GROUP=
 
 # Encryption Settings
 ENCRYPTION_KEY=
@@ -144,7 +133,7 @@ def save_email_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         if not validation_result["success"]:
             return validation_result
 
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
         ensure_env_file()
         
         # Read existing .env file
@@ -222,47 +211,30 @@ def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         if not validation_result["success"]:
             return validation_result
 
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
         ensure_env_file()
         
         # Read existing .env file
-        with open(env_file, 'r') as f:
-            lines = f.readlines()
+        env_content = {}
+        if os.path.exists(env_file):
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        key, value = line.split('=', 1)
+                        env_content[key] = value
         
         # Update Azure settings with encryption
-        new_lines = []
-        azure_settings_updated = False
-        
-        for line in lines:
-            if line.startswith('AZURE_OPENAI_ENDPOINT='):
-                new_lines.append(f'AZURE_OPENAI_ENDPOINT={encrypt_value(data["endpoint"])}\n')
-                azure_settings_updated = True
-            elif line.startswith('AZURE_OPENAI_API_KEY='):
-                new_lines.append(f'AZURE_OPENAI_API_KEY={encrypt_value(data["api_key"])}\n')
-                azure_settings_updated = True
-            elif line.startswith('AZURE_OPENAI_API_VERSION='):
-                new_lines.append(f'AZURE_OPENAI_API_VERSION={data["api_version"]}\n')
-                azure_settings_updated = True
-            elif line.startswith('AZURE_OPENAI_DEPLOYMENT_NAME='):
-                new_lines.append(f'AZURE_OPENAI_DEPLOYMENT_NAME={data["deployment"]}\n')
-                azure_settings_updated = True
-            elif line.startswith('AZURE_OPENAI_EMBEDDING_DEPLOYMENT='):
-                new_lines.append(f'AZURE_OPENAI_EMBEDDING_DEPLOYMENT={data["embedding_deployment"]}\n')
-                azure_settings_updated = True
-            else:
-                new_lines.append(line)
-        
-        # Add Azure settings if they don't exist
-        if not azure_settings_updated:
-            new_lines.append(f'AZURE_OPENAI_ENDPOINT={encrypt_value(data["endpoint"])}\n')
-            new_lines.append(f'AZURE_OPENAI_API_KEY={encrypt_value(data["api_key"])}\n')
-            new_lines.append(f'AZURE_OPENAI_API_VERSION={data["api_version"]}\n')
-            new_lines.append(f'AZURE_OPENAI_DEPLOYMENT_NAME={data["deployment"]}\n')
-            new_lines.append(f'AZURE_OPENAI_EMBEDDING_DEPLOYMENT={data["embedding_deployment"]}\n')
+        env_content['AZURE_OPENAI_ENDPOINT'] = encrypt_value(data["endpoint"])
+        env_content['AZURE_OPENAI_API_KEY'] = encrypt_value(data["api_key"])
+        env_content['AZURE_OPENAI_API_VERSION'] = data["api_version"]
+        env_content['AZURE_OPENAI_DEPLOYMENT_NAME'] = data["deployment"]
+        env_content['AZURE_OPENAI_EMBEDDING_DEPLOYMENT'] = data["embedding_deployment"]
         
         # Write updated .env file
         with open(env_file, 'w') as f:
-            f.writelines(new_lines)
+            for key, value in env_content.items():
+                f.write(f"{key}={value}\n")
         
         logger.info("Azure settings saved successfully")
         return {"success": True, "message": "Azure settings saved successfully"}
@@ -273,7 +245,7 @@ def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
 def get_settings() -> Dict[str, Any]:
     """Get all settings with decryption"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
         ensure_env_file()
         
         # Load environment variables
@@ -287,15 +259,6 @@ def get_settings() -> Dict[str, Any]:
             "azure_endpoint": decrypt_value(os.getenv('AZURE_OPENAI_ENDPOINT', '')),
             "azure_api_version": os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview'),
             "azure_deployment_name": os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4'),
-            "private_link_enabled": os.getenv('PRIVATE_LINK_ENABLED', 'false').lower() == 'true',
-            "private_link_subscription_id": decrypt_value(os.getenv('PRIVATE_LINK_SUBSCRIPTION_ID', '')),
-            "private_link_resource_group": decrypt_value(os.getenv('PRIVATE_LINK_RESOURCE_GROUP', '')),
-            "private_link_location": os.getenv('PRIVATE_LINK_LOCATION', ''),
-            "private_link_vnet_name": decrypt_value(os.getenv('PRIVATE_LINK_VNET_NAME', '')),
-            "private_link_subnet_name": decrypt_value(os.getenv('PRIVATE_LINK_SUBNET_NAME', '')),
-            "private_link_service_name": decrypt_value(os.getenv('PRIVATE_LINK_SERVICE_NAME', '')),
-            "private_link_dns_zone_name": decrypt_value(os.getenv('PRIVATE_LINK_DNS_ZONE_NAME', '')),
-            "private_link_dns_zone_resource_group": decrypt_value(os.getenv('PRIVATE_LINK_DNS_ZONE_RESOURCE_GROUP', ''))
         }
         
         return {"success": True, "settings": settings}
@@ -335,8 +298,7 @@ def clear_all_data() -> Dict[str, Any]:
 def get_private_link_config() -> Dict[str, Any]:
     """Get private link configuration (base and path only)"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
-        ensure_env_file()
+        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
         load_dotenv(env_file)
         config = {
             "base": os.getenv('PRIVATE_LINK_BASE', ''),
@@ -350,30 +312,29 @@ def get_private_link_config() -> Dict[str, Any]:
 def save_private_link_config(data: Dict[str, Any]) -> Dict[str, Any]:
     """Save private link configuration (base and path only)"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
+        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
         ensure_env_file()
-        with open(env_file, 'r') as f:
-            lines = f.readlines()
-        new_lines = []
-        base_set = False
-        path_set = False
-        for line in lines:
-            if line.startswith('PRIVATE_LINK_BASE='):
-                new_lines.append(f'PRIVATE_LINK_BASE={data.get("base", "")}\n')
-                base_set = True
-            elif line.startswith('PRIVATE_LINK_PATH='):
-                new_lines.append(f'PRIVATE_LINK_PATH={data.get("path", "")}\n')
-                path_set = True
-            elif line.startswith('PRIVATE_LINK_ENABLED='):
-                continue
-            else:
-                new_lines.append(line)
-        if not base_set:
-            new_lines.append(f'PRIVATE_LINK_BASE={data.get("base", "")}\n')
-        if not path_set:
-            new_lines.append(f'PRIVATE_LINK_PATH={data.get("path", "")}\n')
+        # Read existing .env file
+        env_content = {}
+        if os.path.exists(env_file):
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        if '=' in line:
+                            key, value = line.split('=', 1)
+                            # Skip other private link attributes
+                            env_content[key] = value
+        
+        # Update private link settings
+        env_content['PRIVATE_LINK_BASE'] = data.get("base", "")
+        env_content['PRIVATE_LINK_PATH'] = data.get("path", "")
+        
+        # Write updated .env file
         with open(env_file, 'w') as f:
-            f.writelines(new_lines)
+            for key, value in env_content.items():
+                f.write(f"{key}={value}\n")
+        
         logger.info("Private link settings saved successfully")
         return {"success": True, "message": "Private link settings saved successfully"}
     except Exception as e:
