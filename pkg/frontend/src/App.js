@@ -36,7 +36,7 @@ const sidebarStyles = {
   logo: {
     marginBottom: '2rem',
     textAlign: 'center',
-    padding: '20px',
+    padding: '12px',
     background: '#FFFFFF',
     borderRadius: '12px',
     width: 'calc(100% - 32px)',
@@ -45,20 +45,20 @@ const sidebarStyles = {
   navButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '10px 14px',
+    gap: '8px',
+    padding: '6px 10px',
     textDecoration: 'none',
     color: '#000000',
-    borderRadius: '12px',
-    marginBottom: '10px',
+    borderRadius: '8px',
+    marginBottom: '6px',
     background: '#F5F7FA',
     boxShadow: '0 2px 8px rgba(33, 150, 243, 0.08)',
     transition: 'all 0.2s cubic-bezier(.4,0,.2,1)',
     fontWeight: 500,
-    fontSize: '0.98rem',
+    fontSize: '0.85rem',
     border: '2px solid transparent',
     cursor: 'pointer',
-    minHeight: '36px',
+    minHeight: '28px',
     flexShrink: 0, // Prevent nav buttons from shrinking
   },
   navButtonHover: {
@@ -149,8 +149,8 @@ function NavButton({ to, icon: Icon, children, isActive }) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Icon sx={{ fontSize: '20px' }} />
-      <Typography variant="body1" sx={{ fontWeight: 'inherit', fontSize: '0.98rem' }}>{children}</Typography>
+      <Icon sx={{ fontSize: '18px' }} />
+      <Typography variant="body1" sx={{ fontWeight: 'inherit', fontSize: '0.85rem' }}>{children}</Typography>
     </Link>
   );
 }

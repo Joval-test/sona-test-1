@@ -390,34 +390,37 @@ export default function ConnectDashboard() {
         </div>
       )}
 
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '2rem'
-      }}>
-        <button
-          style={{
-            ...styles.actionButton,
-            opacity: Object.values(selected).some(Boolean) && !sending ? 1 : 0.5,
-            pointerEvents: Object.values(selected).some(Boolean) && !sending ? "auto" : "none",
-          }}
-          onClick={handleSendEmails}
-          disabled={!Object.values(selected).some(Boolean) || sending}
-        >
-          {sending ? "Sending..." : "Send Emails to Selected"}
-        </button>
+      {/* Only show search bar and send email button if leads are present */}
+      {!loading && !error && leadsPresent && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '2rem'
+        }}>
+          <button
+            style={{
+              ...styles.actionButton,
+              opacity: Object.values(selected).some(Boolean) && !sending ? 1 : 0.5,
+              pointerEvents: Object.values(selected).some(Boolean) && !sending ? "auto" : "none",
+            }}
+            onClick={handleSendEmails}
+            disabled={!Object.values(selected).some(Boolean) || sending}
+          >
+            {sending ? "Sending..." : "Send Emails to Selected"}
+          </button>
 
-        <div style={styles.searchContainer}>
-          <input
-            type="text"
-            placeholder="Search by name, company, email..."
-            style={styles.searchInput}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <div style={styles.searchContainer}>
+            <input
+              type="text"
+              placeholder="Search by name, company, email..."
+              style={styles.searchInput}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Show loading state */}
       {loading && (

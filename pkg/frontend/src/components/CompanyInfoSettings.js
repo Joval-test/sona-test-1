@@ -9,6 +9,7 @@ import {
   Input,
   createTheme,
   ThemeProvider,
+  Snackbar,
 } from '@mui/material';
 import { useNotification } from '../hooks/useNotification';
 
@@ -18,6 +19,12 @@ const darkTheme = createTheme({
     mode: 'dark',
     background: { default: '#1a2027', paper: '#2d3748' },
     text: { primary: '#e2e8f0', secondary: '#a0aec0' },
+    primary: {
+      main: '#BE232F',
+    },
+    secondary: {
+      main: '#304654',
+    },
   },
   typography: { fontFamily: '"Inter","Segoe UI",Arial,sans-serif' },
   components: {
@@ -28,12 +35,13 @@ const darkTheme = createTheme({
           borderRadius: 8,
           textTransform: 'none',
           boxShadow: 'none',
-          backgroundImage: 'linear-gradient(90deg,#ffffff 0%,#1E88E5 100%)',
-          color: '#000000',
           '&:hover': {
+            boxShadow: 'none',
             opacity: 0.9,
-            backgroundImage: 'linear-gradient(90deg,#ffffff 0%,#1E88E5 100%)',
           },
+        },
+        containedPrimary: {
+          background: 'linear-gradient(90deg, #BE232F 60%, #304654 100%)',
         },
       },
     },
@@ -41,30 +49,27 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& label': { color: '#a0aec0' },
-          '& label.Mui-focused': { color: '#3f51b5' },
+          '& label.Mui-focused': { color: '#BE232F' },
           '& .MuiInputBase-input': { color: '#e2e8f0' },
           '& .MuiOutlinedInput-root fieldset': { borderColor: '#4a5568' },
+          '& .MuiOutlinedInput-root:hover fieldset': { borderColor: '#BE232F' },
+          '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#BE232F' },
         },
       },
     },
-    MuiAlert: {
+    MuiTypography: {
       styleOverrides: {
-        root: {
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          width: '90%',
-          maxWidth: '600px',
-          animation: 'slideDown 0.3s ease-out',
+        h5: {
+          marginBottom: '1rem',
+          fontWeight: 600,
+          color: '#e2e8f0',
         },
       },
     },
   },
 });
 
-/* ----------  COMPONENT  ---------- */
+/* ----------  MAIN COMPONENT  ---------- */
 function CompanyInfoSettings() {
   /* state */
   const [pdfFiles, setPdfFiles] = useState([]);
@@ -89,13 +94,20 @@ function CompanyInfoSettings() {
     const files = Array.from(e.dataTransfer.files || []).filter((f) =>
       f.name.toLowerCase().endsWith('.pdf')
     );
+    if (files.length !== e.dataTransfer.files.length) {
+      showError('Some files were rejected. Please upload only PDF files.');
+    }
     setPdfFiles((prev) => [...prev, ...files]);
+  };
+
+  const removeFile = (indexToRemove) => {
+    setPdfFiles(pdfFiles.filter((_, index) => index !== indexToRemove));
   };
 
   /* upload PDFs */
   const uploadPdfs = async (event) => {
     event.preventDefault();
-    if (!fileInputRef.current.files.length) {
+    if (!pdfFiles.length) {
       showError('Please select files to upload');
       return;
     }
@@ -103,7 +115,7 @@ function CompanyInfoSettings() {
     setUploading(true);
     try {
       const formData = new FormData();
-      Array.from(fileInputRef.current.files).forEach((file) => {
+      pdfFiles.forEach((file) => {
         formData.append('files', file);
       });
 
@@ -118,15 +130,21 @@ function CompanyInfoSettings() {
       }
 
       // Show success message with details
-      const successCount = data.results.filter(r => r.status === 'success').length;
-      const errorCount = data.results.filter(r => r.status === 'error').length;
+      const successCount = data.results?.filter(r => r.status === 'success').length || 0;
+      const errorCount = data.results?.filter(r => r.status === 'error').length || 0;
       let message = `Successfully processed ${successCount} file${successCount !== 1 ? 's' : ''}`;
       if (errorCount > 0) {
         message += ` (${errorCount} file${errorCount !== 1 ? 's' : ''} failed)`;
       }
       showSuccess(message);
-      fileInputRef.current.value = '';
+      
+      // Reset form
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setPdfFiles([]);
     } catch (err) {
+      console.error('Upload error:', err);
       showError(err.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -143,12 +161,12 @@ function CompanyInfoSettings() {
 
     setSubmitting(true);
     try {
+      const urls = companyUrls.split('\n').map((u) => u.trim()).filter(Boolean);
+      
       const res = await fetch('/api/upload/company-urls', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          urls: companyUrls.split('\n').map((u) => u.trim()).filter(Boolean),
-        }),
+        body: JSON.stringify({ urls }),
       });
       
       const data = await res.json();
@@ -157,8 +175,8 @@ function CompanyInfoSettings() {
       }
 
       // Show success message with details
-      const successCount = data.results.filter(r => r.status === 'success').length;
-      const errorCount = data.results.filter(r => r.status === 'error').length;
+      const successCount = data.results?.filter(r => r.status === 'success').length || 0;
+      const errorCount = data.results?.filter(r => r.status === 'error').length || 0;
       let message = `Successfully processed ${successCount} URL${successCount !== 1 ? 's' : ''}`;
       if (errorCount > 0) {
         message += ` (${errorCount} URL${errorCount !== 1 ? 's' : ''} failed)`;
@@ -166,6 +184,7 @@ function CompanyInfoSettings() {
       showSuccess(message);
       setCompanyUrls('');
     } catch (err) {
+      console.error('URL submission error:', err);
       showError(err.message || 'Failed to submit URLs. Please try again.');
     } finally {
       setSubmitting(false);
@@ -175,21 +194,7 @@ function CompanyInfoSettings() {
   /* ----------  JSX  ---------- */
   return (
     <ThemeProvider theme={darkTheme}>
-      {notification.type && (
-        <Alert 
-          severity={notification.type} 
-          onClose={clearNotification}
-          sx={{
-            marginBottom: 2,
-            '& .MuiAlert-message': {
-              flex: 1
-            }
-          }}
-        >
-          {notification.message}
-        </Alert>
-      )}
-      <Box sx={{ width: '100%' }}>
+      <Box sx={{ width: '100%', position: 'relative' }}>
         {/* PDF upload form */}
         <Box component="form" onSubmit={uploadPdfs} sx={{ mb: 4 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
@@ -214,7 +219,7 @@ function CompanyInfoSettings() {
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            onClick={() => document.getElementById('pdf-input').click()}
+            onClick={() => document.getElementById('pdf-input')?.click()}
             sx={{
               border: `2px dashed ${
                 dragOver ? darkTheme.palette.primary.main : darkTheme.palette.text.secondary
@@ -224,20 +229,60 @@ function CompanyInfoSettings() {
               textAlign: 'center',
               cursor: 'pointer',
               mb: 2,
-              backgroundColor: dragOver ? 'rgba(63,81,181,0.1)' : 'transparent',
-              transition: 'all 0.2s',
+              backgroundColor: dragOver ? 'rgba(190, 35, 47, 0.1)' : 'rgba(255,255,255,0.03)',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderColor: darkTheme.palette.primary.main,
+              },
             }}
           >
             <Typography variant="body1" sx={{ color: darkTheme.palette.text.secondary }}>
-              Drag & drop PDF files here, or click to select
+              Drag and drop your PDF files here, or <strong>tap to upload</strong>
+            </Typography>
+            <Typography variant="body2" sx={{ color: darkTheme.palette.text.secondary, mt: 1, fontSize: '0.875rem' }}>
+              Supported format: .pdf
             </Typography>
           </Box>
 
           {pdfFiles.length > 0 && (
-            <Typography variant="body2" sx={{ mb: 2, color: darkTheme.palette.text.secondary }}>
-              Selected PDFs:&nbsp;
-              {pdfFiles.map((f) => f.name).join(', ')}
-            </Typography>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ color: darkTheme.palette.text.secondary, mb: 1 }}>
+                Selected Files ({pdfFiles.length}):
+              </Typography>
+              {pdfFiles.map((file, index) => (
+                <Box 
+                  key={index} 
+                  sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    padding: 1,
+                    borderRadius: 1,
+                    mb: 1
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: darkTheme.palette.text.primary }}>
+                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFile(index);
+                    }}
+                    sx={{ 
+                      color: darkTheme.palette.error?.main || '#f56565',
+                      minWidth: 'auto',
+                      padding: '4px 8px'
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </Box>
+              ))}
+            </Box>
           )}
 
           {/* buttons right-aligned */}
@@ -247,8 +292,23 @@ function CompanyInfoSettings() {
               variant="contained"
               disabled={uploading || !pdfFiles.length}
               startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : null}
+              sx={{
+                background: 'linear-gradient(to right, #ffffff, #3b82f6)',
+                color: 'black',
+                fontWeight: 700,
+                borderRadius: 8,
+                textTransform: 'none',
+                '&:hover': {
+                  opacity: 0.9,
+                  background: 'linear-gradient(to right, #f1f1f1, #2563eb)',
+                },
+                '&:disabled': {
+                  opacity: 0.6,
+                  background: 'linear-gradient(to right, #cccccc, #9ca3af)',
+                },
+              }}
             >
-              {uploading ? 'Uploading…' : 'Upload PDFs'}
+              {uploading ? 'Uploading...' : 'Upload PDFs'}
             </Button>
           </Box>
         </Box>
@@ -277,11 +337,47 @@ function CompanyInfoSettings() {
               variant="contained"
               disabled={submitting || !companyUrls.trim()}
               startIcon={submitting ? <CircularProgress size={20} color="inherit" /> : null}
+              sx={{
+                background: 'linear-gradient(to right, #ffffff, #3b82f6)',
+                color: 'black',
+                fontWeight: 700,
+                borderRadius: 8,
+                textTransform: 'none',
+                '&:hover': {
+                  opacity: 0.9,
+                  background: 'linear-gradient(to right, #f1f1f1, #2563eb)',
+                },
+                '&:disabled': {
+                  opacity: 0.6,
+                  background: 'linear-gradient(to right, #cccccc, #9ca3af)',
+                },
+              }}
             >
-              {submitting ? 'Submitting…' : 'Submit URLs'}
+              {submitting ? 'Submitting...' : 'Submit URLs'}
             </Button>
           </Box>
         </Box>
+
+        {/* Success/Error Notification Snackbar */}
+        <Snackbar
+          open={!!notification.message}
+          autoHideDuration={6000}
+          onClose={clearNotification}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert 
+            onClose={clearNotification} 
+            severity={notification.type === 'success' ? 'success' : 'error'}
+            sx={{ 
+              width: '100%',
+              '& .MuiAlert-message': {
+                fontSize: '0.875rem'
+              }
+            }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Box>
     </ThemeProvider>
   );
