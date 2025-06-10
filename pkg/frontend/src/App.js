@@ -13,8 +13,11 @@ import { Dashboard, Assessment, Settings, Help, Chat, Menu } from '@mui/icons-ma
 
 const sidebarStyles = {
   container: {
+    position: 'fixed',
+    top: '64px', // Start below the header
+    left: 0,
     width: 280,
-    flexShrink: 0,
+    height: 'calc(100vh - 64px)', // Full height minus header
     background: '#F5F7FA',
     color: '#000000',
     padding: '24px 16px',
@@ -22,12 +25,11 @@ const sidebarStyles = {
     display: 'flex',
     flexDirection: 'column',
     boxShadow: '4px 0 12px rgba(0,0,0,0.1)',
-    position: 'fixed',
-    height: '100vh',
     overflowY: 'auto',
     transition: 'transform 0.3s ease-in-out',
     zIndex: 1000,
-  },  containerClosed: {
+  },
+  containerClosed: {
     transform: 'translateX(-100%)',
     visibility: 'hidden',
   },
@@ -38,6 +40,7 @@ const sidebarStyles = {
     background: '#FFFFFF',
     borderRadius: '12px',
     width: 'calc(100% - 32px)',
+    flexShrink: 0, // Prevent logo from shrinking
   },
   navButton: {
     display: 'flex',
@@ -56,6 +59,7 @@ const sidebarStyles = {
     border: '2px solid transparent',
     cursor: 'pointer',
     minHeight: '36px',
+    flexShrink: 0, // Prevent nav buttons from shrinking
   },
   navButtonHover: {
     background: '#E3F2FD',
@@ -71,10 +75,23 @@ const sidebarStyles = {
     border: '2px solid #1976D2',
     transform: 'scale(1.02)',
   },
+  navSection: {
+    flex: 1, // Take up available space
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0, // Allow flex items to shrink below content size
+  },
+  bottomLogo: {
+    marginTop: 'auto',
+    padding: '20px 0',
+    textAlign: 'center',
+    background: 'transparent',
+    flexShrink: 0, // Prevent bottom logo from shrinking
+  },
   mainContentShift: {
-    marginLeft: '312px',  // 280px + padding
+    marginLeft: '280px', // Sidebar width
     transition: 'all 0.3s ease-in-out',
-    width: 'calc(100% - 312px)',
+    width: 'calc(100% - 280px)',
     padding: '24px',
   },
   mainContentFull: {
@@ -82,7 +99,8 @@ const sidebarStyles = {
     width: '100%',
     padding: '24px',
     transition: 'all 0.3s ease-in-out',
-  },  header: {
+  },
+  header: {
     position: 'fixed',
     top: 0,
     left: 0,
@@ -93,7 +111,7 @@ const sidebarStyles = {
     alignItems: 'center',
     padding: '0 20px',
     boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-    zIndex: 999,
+    zIndex: 1001, // Higher than sidebar
   },
   headerLogo: {
     display: 'flex',
@@ -140,36 +158,34 @@ function NavButton({ to, icon: Icon, children, isActive }) {
 function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
   const isUserChat = location.pathname === '/chat';
-  if (isUserChat || !isOpen) {
+  
+  if (isUserChat) {
     return null;
   }
+
+  const sidebarContainerStyle = {
+    ...sidebarStyles.container,
+    ...(isOpen ? {} : sidebarStyles.containerClosed)
+  };
+
   return (
-    <Box sx={{
-      ...sidebarStyles.container,
-      position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      minHeight: '100vh',
-      maxHeight: '100vh',
-      overflow: 'hidden',
-    }}>
+    <Box sx={sidebarContainerStyle}>
       <Box sx={sidebarStyles.logo}>
         <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
           <img 
             src="/images/logo_transparent.png" 
             alt="Product Logo" 
             style={{ 
-              width: isOpen ? '200px' : '48px',
+              width: '200px',
               height: 'auto',
               objectFit: 'contain',
               maxWidth: '100%',
-              transition: 'width 0.2s',
             }} 
           />
         </Link>
       </Box>
-      <nav style={{ flex: 1 }}>
+      
+      <nav style={sidebarStyles.navSection}>
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <NavButton to="/connect" icon={Dashboard} isActive={location.pathname === '/connect'}>
             Connect
@@ -185,20 +201,15 @@ function Sidebar({ isOpen, onToggle }) {
           </NavButton>
         </Box>
       </nav>
-      <Box sx={{
-        marginTop: 'auto',
-        padding: '20px 0',
-        textAlign: 'center',
-        background: 'transparent',
-      }}>
+      
+      <Box sx={sidebarStyles.bottomLogo}>
         <img 
           src="/images/caze_labs_logo.png" 
           alt="Caze Labs Logo" 
           style={{ 
-            height: isOpen ? '40px' : '32px',
+            height: '40px',
+            width: 'auto',
             opacity: 0.8,
-            transition: 'height 0.2s',
-            width: isOpen ? 'auto' : '32px',
             objectFit: 'contain',
             display: 'inline-block',
             margin: 0,
@@ -217,6 +228,7 @@ function Header({ isOpen, onToggle }) {
   if (isUserChat) {
     return null;
   }
+  
   return (
     <Box sx={sidebarStyles.header}>
       <IconButton 
@@ -224,7 +236,7 @@ function Header({ isOpen, onToggle }) {
         size="large"
         edge="start"
         aria-label="menu"
-        sx={{ color: '#FFFFFF' }}  // Make hamburger icon white
+        sx={{ color: '#FFFFFF' }}
       >
         <Menu />
       </IconButton>
@@ -263,6 +275,24 @@ function App() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  // Calculate main content margin based on sidebar state
+  const getMainContentStyle = () => {
+    if (isUserChat) {
+      return {
+        marginLeft: 0,
+        width: '100%',
+        padding: 0,
+      };
+    }
+    
+    return {
+      marginLeft: isSidebarOpen ? '280px' : '0px',
+      width: isSidebarOpen ? 'calc(100% - 280px)' : '100%',
+      padding: '24px',
+      transition: 'all 0.3s ease-in-out',
+    };
+  };
+
   return (
     <Box sx={{ 
       display: 'flex', 
@@ -272,33 +302,33 @@ function App() {
       fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
     }}>
       <Header isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-      <Box sx={{ display: 'flex', flexGrow: 1, marginTop: '64px' }}>
-        <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-        
-        <Box component="main" sx={{ 
-          flexGrow: 1, 
+      <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
+      
+      <Box 
+        component="main" 
+        sx={{ 
+          ...getMainContentStyle(),
+          marginTop: '64px', // Account for fixed header
+          minHeight: 'calc(100vh - 64px)', // Full height minus header
           background: '#121212',
           overflowY: 'auto',
-          minHeight: 'calc(100vh - 64px)',
-          padding: isUserChat ? 0 : undefined,
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          transition: 'margin-left 0.3s',
-        }}>
-          <Routes>
-            <Route path="/connect" element={<ConnectDashboard />} />
-            <Route path="/report" element={<ReportPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/help" element={<HelpPage />} />
-            <Route path="/chat" element={<UserChat />} />
-            <Route path="/connect/chat-review" element={
-              isAdmin ? <AdminChatReview /> : <AdminLogin onLogin={() => setIsAdmin(true)} />
-            } />
-            <Route path="/" element={<LandingPage />} />
-          </Routes>
-        </Box>
+        }}
+      >
+        <Routes>
+          <Route path="/connect" element={<ConnectDashboard />} />
+          <Route path="/report" element={<ReportPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/chat" element={<UserChat />} />
+          <Route path="/connect/chat-review" element={
+            isAdmin ? <AdminChatReview /> : <AdminLogin onLogin={() => setIsAdmin(true)} />
+          } />
+          <Route path="/" element={<LandingPage />} />
+        </Routes>
       </Box>
     </Box>
   );
