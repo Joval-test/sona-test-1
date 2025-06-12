@@ -1,5 +1,5 @@
 [project]
-name = "caze_BizConAI"
+name = "caze-bizconai"
 version = "0.2.0"
 description = ""
 authors = [
@@ -19,7 +19,8 @@ dependencies = [
     "pandas (>=2.3.0,<3.0.0)",
     "beautifulsoup4 (>=4.13.4,<5.0.0)",
     "requests (>=2.32.4,<3.0.0)",
-    "openpyxl (>=3.1.5,<4.0.0)"
+    "openpyxl (>=3.1.5,<4.0.0)",
+    "cryptography (>=45.0.4,<46.0.0)"
 ]
 
 

@@ -9,8 +9,11 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import smtplib
 import uuid
-from core.settings import get_private_link_config
+from core.settings import get_private_link_config, load_and_set_decrypted_env
 from logging_utils import stage_log
+
+# Ensure decrypted credentials are loaded into os.environ
+load_and_set_decrypted_env()
 
 MASTER_PATH = 'data/master_leads.xlsx'
 REPORT_PATH = 'data/report.xlsx'
@@ -337,7 +340,10 @@ def get_status_for_email(email):
 
 @stage_log(2)
 def generate_private_link(user_id):
-    config = get_private_link_config()
-    base = config.get('base', 'https://yourapp.com')
-    path = config.get('path', '/chat?user=')
+    # Debug prints
+    print("PRIVATE_LINK_BASE from os.environ:", os.environ.get('PRIVATE_LINK_BASE'))
+    print("PRIVATE_LINK_PATH from os.environ:", os.environ.get('PRIVATE_LINK_PATH'))
+    # print("Config from get_private_link_config:", config)
+    base =os.environ.get('PRIVATE_LINK_BASE')
+    path =os.environ.get('PRIVATE_LINK_PATH') 
     return f"{base}{path}{user_id}"

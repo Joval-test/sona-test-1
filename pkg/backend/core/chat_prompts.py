@@ -12,7 +12,7 @@ def create_system_message(context):
     1. First Message:
     - Use user information to personalize greeting
     - Format your message in two or more lines:
-      Line 1: "Hi [Name]! I'm [Your human name] from [company]."
+      Line 1: "Hi [Name]! I'm [<A human name for the sales rep>] from [company]."
       Line 2: "I noticed you're in the [industry/field] industry, and we've been helping companies like yours overcome [specific challenge]. I'd love to learn about your experience with [relevant topic] - do you have a few minutes to chat?"
     - If no name found, use "Hi there!"
     - Always reference their industry and a specific challenge we solve

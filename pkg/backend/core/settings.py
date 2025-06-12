@@ -31,10 +31,13 @@ def derive_key(password: str, salt: bytes = None) -> tuple[bytes, bytes]:
     key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
     return key, salt
 
+def get_env_file_path() -> str:
+    """Return the absolute path to the .env file in the backend directory."""
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+
 def get_encryption_key() -> tuple[Fernet, bytes]:
     """Get or create encryption key"""
-    env_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backend', '.env')
-    
+    env_file = get_env_file_path()
     # Load existing key if available
     if os.path.exists(env_file):
         load_dotenv(env_file)
@@ -47,16 +50,13 @@ def get_encryption_key() -> tuple[Fernet, bytes]:
                 return Fernet(key), salt
             except Exception as e:
                 logger.error(f"Error loading encryption key: {str(e)}")
-    
     # Generate new key
     master_password = os.urandom(32).hex()  # Generate a random master password
     key, salt = derive_key(master_password)
-    
     # Save the key and salt
     with open(env_file, 'a') as f:
         f.write(f"\nENCRYPTION_KEY={base64.urlsafe_b64encode(key).decode()}")
         f.write(f"\nENCRYPTION_SALT={base64.urlsafe_b64encode(salt).decode()}")
-    
     return Fernet(key), salt
 
 def encrypt_value(value: str) -> str:
@@ -83,8 +83,7 @@ def decrypt_value(value: str) -> str:
 
 def ensure_env_file() -> None:
     """Create .env file if it doesn't exist"""
-    env_file = os.path.join(os.path.dirname('backend'), '.env')
-    
+    env_file = get_env_file_path()
     if not os.path.exists(env_file):
         logger.info("Creating .env file with default values")
         default_env = """
@@ -99,6 +98,7 @@ AZURE_OPENAI_ENDPOINT=
 AZURE_OPENAI_API_KEY=
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
 AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=
 
 # Encryption Settings
 ENCRYPTION_KEY=
@@ -133,36 +133,26 @@ def save_email_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         if not validation_result["success"]:
             return validation_result
 
-        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
+        env_file = get_env_file_path()
         ensure_env_file()
-        
+        # Ensure encryption key and salt are present
+        get_encryption_key()
         # Read existing .env file
-        with open(env_file, 'r') as f:
-            lines = f.readlines()
-        
+        env_content = {}
+        if os.path.exists(env_file):
+            with open(env_file, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        env_content[key] = value
         # Update email settings with encryption
-        new_lines = []
-        email_settings_updated = False
-        
-        for line in lines:
-            if line.startswith('EMAIL_SENDER='):
-                new_lines.append(f'EMAIL_SENDER={encrypt_value(data["sender"])}\n')
-                email_settings_updated = True
-            elif line.startswith('EMAIL_PASSWORD='):
-                new_lines.append(f'EMAIL_PASSWORD={encrypt_value(data["password"])}\n')
-                email_settings_updated = True
-            else:
-                new_lines.append(line)
-        
-        # Add email settings if they don't exist
-        if not email_settings_updated:
-            new_lines.append(f'EMAIL_SENDER={encrypt_value(data["sender"])}\n')
-            new_lines.append(f'EMAIL_PASSWORD={encrypt_value(data["password"])}\n')
-        
-        # Write updated .env file
+        env_content['EMAIL_SENDER'] = encrypt_value(data["sender"])
+        env_content['EMAIL_PASSWORD'] = encrypt_value(data["password"])
+        # Write updated .env file, preserving key/salt
         with open(env_file, 'w') as f:
-            f.writelines(new_lines)
-        
+            for key, value in env_content.items():
+                f.write(f"{key}={value}\n")
         logger.info("Email settings saved successfully")
         return {"success": True, "message": "Email settings saved successfully"}
     except Exception as e:
@@ -211,31 +201,29 @@ def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
         if not validation_result["success"]:
             return validation_result
 
-        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
+        env_file = get_env_file_path()
         ensure_env_file()
-        
+        # Ensure encryption key and salt are present
+        get_encryption_key()
         # Read existing .env file
         env_content = {}
         if os.path.exists(env_file):
             with open(env_file, 'r') as f:
                 for line in f:
                     line = line.strip()
-                    if line and not line.startswith('#'):
+                    if line and not line.startswith('#') and '=' in line:
                         key, value = line.split('=', 1)
                         env_content[key] = value
-        
         # Update Azure settings with encryption
         env_content['AZURE_OPENAI_ENDPOINT'] = encrypt_value(data["endpoint"])
         env_content['AZURE_OPENAI_API_KEY'] = encrypt_value(data["api_key"])
         env_content['AZURE_OPENAI_API_VERSION'] = data["api_version"]
         env_content['AZURE_OPENAI_DEPLOYMENT_NAME'] = data["deployment"]
         env_content['AZURE_OPENAI_EMBEDDING_DEPLOYMENT'] = data["embedding_deployment"]
-        
-        # Write updated .env file
+        # Write updated .env file, preserving key/salt
         with open(env_file, 'w') as f:
             for key, value in env_content.items():
                 f.write(f"{key}={value}\n")
-        
         logger.info("Azure settings saved successfully")
         return {"success": True, "message": "Azure settings saved successfully"}
     except Exception as e:
@@ -245,7 +233,7 @@ def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
 def get_settings() -> Dict[str, Any]:
     """Get all settings with decryption"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
+        env_file = get_env_file_path()
         ensure_env_file()
         
         # Load environment variables
@@ -298,7 +286,7 @@ def clear_all_data() -> Dict[str, Any]:
 def get_private_link_config() -> Dict[str, Any]:
     """Get private link configuration (base and path only)"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
+        env_file = get_env_file_path()
         load_dotenv(env_file)
         config = {
             "base": os.getenv('PRIVATE_LINK_BASE', ''),
@@ -312,7 +300,7 @@ def get_private_link_config() -> Dict[str, Any]:
 def save_private_link_config(data: Dict[str, Any]) -> Dict[str, Any]:
     """Save private link configuration (base and path only)"""
     try:
-        env_file = os.path.join(os.path.dirname(os.path.dirname('backend')), '.env')
+        env_file = get_env_file_path()
         ensure_env_file()
         # Read existing .env file
         env_content = {}
@@ -344,3 +332,39 @@ def save_private_link_config(data: Dict[str, Any]) -> Dict[str, Any]:
 @stage_log(3)
 def get_report_path():
     return os.path.join(DATA_DIR, 'report.xlsx')
+
+def load_and_set_decrypted_env():
+    """
+    Load .env, decrypt encrypted values, and set them in os.environ with the expected keys.
+    This should be called before any code that uses credentials from the environment.
+    """
+    env_file = get_env_file_path()
+    if not os.path.exists(env_file):
+        ensure_env_file()
+    # Read .env file
+    env_vars = {}
+    with open(env_file, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, value = line.split('=', 1)
+                env_vars[key] = value
+    # Decrypt relevant values
+    decrypted_vars = {}
+    # Email
+    decrypted_vars['EMAIL_SENDER'] = decrypt_value(env_vars.get('EMAIL_SENDER', ''))
+    decrypted_vars['EMAIL_PASSWORD'] = decrypt_value(env_vars.get('EMAIL_PASSWORD', ''))
+    decrypted_vars['EMAIL_SMTP_SERVER'] = env_vars.get('EMAIL_SMTP_SERVER', 'smtp.gmail.com')
+    decrypted_vars['EMAIL_SMTP_PORT'] = env_vars.get('EMAIL_SMTP_PORT', '587')
+    # Azure
+    decrypted_vars['AZURE_ENDPOINT'] = decrypt_value(env_vars.get('AZURE_OPENAI_ENDPOINT', ''))
+    decrypted_vars['AZURE_API_KEY'] = decrypt_value(env_vars.get('AZURE_OPENAI_API_KEY', ''))
+    decrypted_vars['AZURE_API_VERSION'] = env_vars.get('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
+    decrypted_vars['AZURE_DEPLOYMENT'] = env_vars.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4')
+    decrypted_vars['AZURE_EMBEDDING_DEPLOYMENT'] = env_vars.get('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', '')
+    # Private Link (plain text)
+    decrypted_vars['PRIVATE_LINK_BASE'] = env_vars.get('PRIVATE_LINK_BASE', '')
+    decrypted_vars['PRIVATE_LINK_PATH'] = env_vars.get('PRIVATE_LINK_PATH', '')
+    # Set in os.environ
+    for k, v in decrypted_vars.items():
+        os.environ[k] = v

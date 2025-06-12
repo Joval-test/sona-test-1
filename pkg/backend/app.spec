@@ -29,11 +29,14 @@ a = Analysis(
     binaries=[
         *easyocr_binaries,
         *docling_binaries,
+        # Add your compiled modules here
+        ('core/*.pyd', 'core'),  # For Windows
+        # ('core/*.so', 'core'),  # For Linux/Mac
     ],
     datas=[
         # Add frontend directory as a single unit
         (frontend_path, 'frontend/build'),
-        ('core', 'core'),
+        # ('core', 'core'),
         ('logging_utils.py', '.'),
         ('logo_transparent.png', '.'),  # Add logo to root of executable
         *flatten_collect_all(langchain_docling, 'langchain_docling'),
