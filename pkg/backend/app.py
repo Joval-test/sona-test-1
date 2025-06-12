@@ -7,7 +7,7 @@ from functools      import wraps
 import sys
 import logging
 import webbrowser
-# import pystray
+import pystray
 from PIL import Image
 import threading
 import signal
@@ -209,52 +209,52 @@ def create_app():
 # Create the app
 app = create_app()
 
-# def open_browser():
-#     webbrowser.open('http://localhost:5000')
+def open_browser():
+    webbrowser.open('http://localhost:5000')
 
-# def create_tray_icon(stop_function):
-#     try:
-#         # Create white background
-#         icon_size = (64, 64)
-#         background = Image.new('RGBA', icon_size, 'white')
+def create_tray_icon(stop_function):
+    try:
+        # Create white background
+        icon_size = (64, 64)
+        background = Image.new('RGBA', icon_size, 'white')
         
-#         # Load and resize logo
-#         if getattr(sys, 'frozen', False):
-#             # When running as executable
-#             icon_path = os.path.join(sys._MEIPASS, 'logo_transparent.png')
-#         else:
-#             # When running in development
-#             icon_path = os.path.join(os.path.dirname(__file__), 'logo_transparent.png')
+        # Load and resize logo
+        if getattr(sys, 'frozen', False):
+            # When running as executable
+            icon_path = os.path.join(sys._MEIPASS, 'logo_transparent.png')
+        else:
+            # When running in development
+            icon_path = os.path.join(os.path.dirname(__file__), 'logo_transparent.png')
             
-#         logger.info(f"Loading tray icon from: {icon_path}")
-#         if os.path.exists(icon_path):
-#             logo = Image.open(icon_path)
-#             logo = logo.resize(icon_size, Image.Resampling.LANCZOS)
-#             background.paste(logo, (0, 0), logo)
-#         else:
-#             logger.error(f"Logo file not found at: {icon_path}")
+        logger.info(f"Loading tray icon from: {icon_path}")
+        if os.path.exists(icon_path):
+            logo = Image.open(icon_path)
+            logo = logo.resize(icon_size, Image.Resampling.LANCZOS)
+            background.paste(logo, (0, 0), logo)
+        else:
+            logger.error(f"Logo file not found at: {icon_path}")
             
-#     except Exception as e:
-#         logger.error(f"Error creating tray icon: {e}")
-#         # Fallback to simple colored icon
-#         background = Image.new('RGB', (64, 64), 'white')
+    except Exception as e:
+        logger.error(f"Error creating tray icon: {e}")
+        # Fallback to simple colored icon
+        background = Image.new('RGB', (64, 64), 'white')
     
-#     def quit_window(icon, item):
-#         icon.stop()
-#         stop_function()
+    def quit_window(icon, item):
+        icon.stop()
+        stop_function()
 
-#     menu = pystray.Menu(
-#         pystray.MenuItem("Caze BizCon AI", None, enabled=False),
-#         pystray.MenuItem("Open", lambda: webbrowser.open('http://localhost:5000')),
-#         pystray.MenuItem("Exit", quit_window)
-#     )
+    menu = pystray.Menu(
+        pystray.MenuItem("Caze BizCon AI", None, enabled=False),
+        pystray.MenuItem("Open", lambda: webbrowser.open('http://localhost:5000')),
+        pystray.MenuItem("Exit", quit_window)
+    )
     
-#     icon = pystray.Icon(
-#         "Caze BizConAI",
-#         background,
-#         menu=menu
-#     )
-#     return icon
+    icon = pystray.Icon(
+        "Caze BizConAI",
+        background,
+        menu=menu
+    )
+    return icon
 
 if __name__ == "__main__":
     logger.info("\n=== Starting Flask App ===")
@@ -293,29 +293,29 @@ if __name__ == "__main__":
     # Disable reloader when running as executable
     # use_reloader = not getattr(sys, 'frozen', False)
     
-    # server_running = threading.Event()
-    # server_running.set()
+    server_running = threading.Event()
+    server_running.set()
 
-    # def stop_server():
-    #     server_running.clear()
-    #     os.kill(os.getpid(), signal.SIGINT)
+    def stop_server():
+        server_running.clear()
+        os.kill(os.getpid(), signal.SIGINT)
 
-    # # Create and start system tray icon
-    # icon = create_tray_icon(stop_server)
-    # icon_thread = threading.Thread(target=icon.run)
-    # icon_thread.daemon = True
-    # icon_thread.start()
+    # Create and start system tray icon
+    icon = create_tray_icon(stop_server)
+    icon_thread = threading.Thread(target=icon.run)
+    icon_thread.daemon = True
+    icon_thread.start()
 
-    # # Open browser after delay
-    # Timer(1.5, open_browser).start()
+    # Open browser after delay
+    Timer(1.5, open_browser).start()
     
-    # try:
-    app.run(
-        debug=True, 
-        port=5000, 
-        use_reloader=False,
-        host='0.0.0.0'
-    )
-    # finally:
-    #     if icon_thread.is_alive():
-    #         icon.stop()
+    try:
+        app.run(
+            debug=True, 
+            port=5000, 
+            use_reloader=False,
+            host='0.0.0.0'
+        )
+    finally:
+        if icon_thread.is_alive():
+            icon.stop()

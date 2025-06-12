@@ -107,12 +107,12 @@ paths:
                           type: string
                           nullable: true
         '400':
-          description: Bad request - Invalid file format or missing files
+          description: Bad request - No files provided
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
-          description: Server error - Embedding or LLM service unavailable
+          description: Server error
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -154,12 +154,12 @@ paths:
                           type: string
                           nullable: true
         '400':
-          description: Bad request - Invalid URLs or missing URLs
+          description: Bad request - No URLs provided
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
-          description: Server error - Embedding or LLM service unavailable
+          description: Server error
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -205,12 +205,12 @@ paths:
                           type: string
                           nullable: true
         '400':
-          description: Bad request - Invalid file format or missing files
+          description: Bad request - No files provided
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
-          description: Server error - Embedding or LLM service unavailable
+          description: Server error
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -228,27 +228,9 @@ paths:
                   success:
                     type: boolean
                     description: Whether the operation was successful
+                  settings:
+                    type: object
                   message:
-                    type: string
-                  email_sender:
-                    type: string
-                  email_host:
-                    type: string
-                  email_port:
-                    type: integer
-                  azure_endpoint:
-                    type: string
-                  azure_api_key:
-                    type: string
-                  azure_api_version:
-                    type: string
-                  azure_deployment:
-                    type: string
-                  azure_embedding_deployment:
-                    type: string
-                  private_link_base:
-                    type: string
-                  private_link_path:
                     type: string
         '500':
           description: Server error
@@ -259,7 +241,6 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
   /api/settings/email:
@@ -312,10 +293,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message (e.g., "Invalid email credentials. Please check your email and password.")
         '500':
           description: Server error
           content:
@@ -325,10 +304,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message
   /api/settings/azure:
     post:
       summary: Save Azure settings
@@ -385,10 +362,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message (e.g., "Invalid Azure credentials: [specific error]")
         '500':
           description: Server error
           content:
@@ -398,10 +373,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message
   /api/settings/private-link:
     get:
       summary: Get private link config
@@ -415,11 +388,9 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  config:
+                    type: object
                   message:
-                    type: string
-                  base:
-                    type: string
-                  path:
                     type: string
         '500':
           description: Server error
@@ -430,10 +401,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message
     post:
       summary: Save private link config
       requestBody:
@@ -473,10 +442,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message
         '500':
           description: Server error
           content:
@@ -486,10 +453,8 @@ paths:
                 properties:
                   success:
                     type: boolean
-                    example: false
                   message:
                     type: string
-                    description: Error message
   /api/leads:
     get:
       summary: Get grouped leads
@@ -505,6 +470,11 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/Lead'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/send_emails:
     post:
       summary: Send emails to selected leads
@@ -537,12 +507,12 @@ paths:
                         status: { type: string, enum: [sent, error, cooldown, no_content, embedding_error, llm_error] }
                         error: { type: string, nullable: true }
         '400':
-          description: Bad request - Invalid lead IDs or missing lead IDs
+          description: Bad request - No lead IDs provided
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
-          description: Server error - Email service or LLM service unavailable
+          description: Server error
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -604,62 +574,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
-  /api/admin/chat_history/{uuid}:
-    get:
-      summary: Get chat history for a lead (admin)
-      security: [{ ApiKeyAuth: [] }]
-      parameters:
-        - in: path
-          name: uuid
-          required: true
-          schema: { type: string }
-      responses:
-        '200':
-          description: Chat history
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  history:
-                    type: array
-                    items: { $ref: '#/components/schemas/ChatMessage' }
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-  /api/admin/mark_lead:
-    post:
-      summary: Mark lead status and summary (admin)
-      security: [{ ApiKeyAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                uuid: { type: string }
-                status: { type: string, enum: [Hot, Warm, Cold, Not Responded] }
-                summary: { type: string }
-                contact: { type: string }
-      responses:
-        '200':
-          description: Mark result
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SuccessResponse' }
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
-        '404':
-          description: Lead not found
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /api/clear-all:
     post:
       summary: Clear all data (chats, files, and leads)
@@ -672,12 +586,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    description: Whether the operation was successful
                   message:
                     type: string
-                    description: Description of the operation result
         '500':
           description: Failed to clear data
           content:
@@ -687,7 +597,6 @@ paths:
                 properties:
                   message:
                     type: string
-                    description: Error message explaining why the operation failed
   /api/uploaded-files:
     get:
       summary: List uploaded files and leads
@@ -762,12 +671,12 @@ paths:
                         email_sent: { type: boolean }
                         email_sent_count: { type: integer }
                         last_email_sent: { type: string, format: date-time }
-        '404':
-          description: No report available
+        '500':
+          description: Server error
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  error:
+                  message:
                     type: string

@@ -8,10 +8,10 @@ from logging_utils import stage_log
 
 report_bp = Blueprint('report', __name__)
 
-@report_bp.before_request
-def restrict_report_access():
-    if request.remote_addr not in ('127.0.0.1', 'localhost', '::1'):
-        return jsonify({'error': 'Access to report is restricted'}), 403
+# @report_bp.before_request
+# def restrict_report_access():
+#     if request.remote_addr not in ('127.0.0.1', 'localhost', '::1'):
+#         return jsonify({'error': 'Access to report is restricted'}), 403
 
 @report_bp.route('/api/report', methods=['GET'])
 def get_report():
