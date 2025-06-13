@@ -75,6 +75,33 @@ def update_report(uuid, chat_history, llm):
         df.loc[mask, 'Chat Summary'] = summary
         df.loc[mask, 'Status (Hot/Warm/Cold/Not Responded)'] = status
         df.loc[mask, 'Connected'] = True
+        # Add new columns if not present
+        if 'Pending Meeting Email' not in df.columns:
+            df['Pending Meeting Email'] = ''
+        if 'Pending Meeting Info' not in df.columns:
+            df['Pending Meeting Info'] = ''
+        if 'Meeting Email Sent' not in df.columns:
+            df['Meeting Email Sent'] = ''
+        # If status is Hot and no pending meeting, auto-generate proposal
+        if status == 'Hot' and not df.loc[mask, 'Pending Meeting Email'].iloc[0]:
+            try:
+                from pkg.backend.app import orchestrate_meeting_flow
+            except ImportError:
+                from ..app import orchestrate_meeting_flow
+            lead_email = df.loc[mask, 'Email'].iloc[0]
+            lead_name = df.loc[mask, 'Name'].iloc[0]
+            result = orchestrate_meeting_flow(summary, lead_email, lead_name, send_email=False)
+            if result.get('success'):
+                # Compose email content for review
+                product = result.get('product', '')
+                responsible = result.get('responsible', {})
+                meeting_link = result.get('meeting_link', '')
+                slot = result.get('slot', '')
+                email_content = f"Hi {lead_name}, your meeting for {product} is scheduled with {responsible.get('name','')} at {slot}. Meeting Link: {meeting_link}"
+                df.loc[mask, 'Pending Meeting Email'] = email_content
+                import json
+                df.loc[mask, 'Pending Meeting Info'] = json.dumps(result)
+                df.loc[mask, 'Meeting Email Sent'] = 'No'
         df.to_excel(REPORT_PATH, index=False)
         return True
     return False

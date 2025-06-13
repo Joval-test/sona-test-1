@@ -4,6 +4,7 @@ import AzureSettings from './AzureSettings';
 import PrivateLinkSettings from './PrivateLinkSettings';
 import CompanyInfoSettings from './CompanyInfoSettings';
 import LeadsInfoSettings from './LeadsInfoSettings';
+import ProductManagementSettings from './ProductManagementSettings';
 import { CircularProgress } from '@mui/material';
 
 const styles = {
@@ -15,7 +16,7 @@ const styles = {
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
   },
   header: {
-    color: "#7A8FA6",
+    color: "#fff",
     fontSize: "2rem",
     fontWeight: "700",
     marginBottom: "1.5rem"
@@ -27,41 +28,43 @@ const styles = {
     flexWrap: "wrap",
   },
   tabButton: {
-    padding: "0.5rem 1.2rem",  // Changed to match ReportPage button padding
+    padding: "0.5rem 1.2rem",
     border: "none",
     borderRadius: "25px",
     backgroundColor: "#2A3B4D",
-    color: "#E0E0E0",
+    color: "#fff",
     cursor: "pointer",
     fontWeight: "600",
-    fontSize: "0.9rem",  // Changed to match ReportPage button font size
+    fontSize: "0.9rem",
     transition: "all 0.3s ease",
     boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
   },
   tabButtonActive: {
-    backgroundColor: "#2196F3", // Changed from #FF6347 to blue
+    backgroundColor: "#2196F3",
     color: "#fff",
-    boxShadow: "0 4px 12px rgba(33, 150, 243, 0.4)", // Changed from rgba(255, 99, 71, 0.4) to blue
+    boxShadow: "0 4px 12px rgba(33, 150, 243, 0.4)",
     transform: "translateY(-2px)"
   },
   contentCard: {
     backgroundColor: "#1F1B24",
     borderRadius: "16px",
     padding: "2rem",
-    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)", // Changed from rgba(255, 99, 71, 0.1) to blue
+    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)",
     marginBottom: "2rem",
-    border: "1px solid #2A3B4D"
+    border: "1px solid #2A3B4D",
+    color: "#fff"
   },
   clearSection: {
     backgroundColor: "#1F1B24",
     borderRadius: "16px",
     padding: "2rem",
-    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)", // Changed from rgba(190, 35, 47, 0.1) to blue
-    border: "1px solid #2196F3" // Changed from #BE232F to blue
+    boxShadow: "0 4px 20px rgba(33, 150, 243, 0.1)",
+    border: "1px solid #2196F3",
+    color: "#fff"
   },
   clearButton: {
-    backgroundColor: "#2196F3", // Changed from #BE232F to blue
-    color: "white",
+    backgroundColor: "#2196F3",
+    color: "#fff",
     border: "none",
     padding: "0.8rem 2rem",
     borderRadius: "25px",
@@ -73,11 +76,11 @@ const styles = {
   },
   alertMessage: {
     backgroundColor: "#304654",
-    color: "#E0E0E0",
+    color: "#fff",
     padding: "1rem 1.5rem",
     borderRadius: "12px",
     marginBottom: "1.5rem",
-    border: "1px solid #2196F3" // Changed from #FF6347 to blue
+    border: "1px solid #2196F3"
   }
 };
 
@@ -117,6 +120,11 @@ function SettingsPage() {
       description: 'Upload and manage your company information and documents.'
     },
     { 
+      id: 'products',
+      label: 'Products & Responsible Persons',
+      description: 'Manage your product list and assign responsible persons.'
+    },
+    { 
       id: 'leads', 
       label: 'Leads Data',
       description: 'Import and manage your leads database.'
@@ -129,6 +137,7 @@ function SettingsPage() {
       case 'azure': return <AzureSettings />;
       case 'private': return <PrivateLinkSettings />;
       case 'company': return <CompanyInfoSettings />;
+      case 'products': return <ProductManagementSettings />;
       case 'leads': return <LeadsInfoSettings />;
       default: return <EmailSettings />;
     }
@@ -158,7 +167,7 @@ function SettingsPage() {
 
       {tab && (
         <p style={{
-          color: '#7A8FA6',
+          color: '#fff',
           margin: '1rem 0 2rem',
           fontSize: '1rem',
           textAlign: 'center',
@@ -178,8 +187,8 @@ function SettingsPage() {
       </div>
 
       <div style={styles.clearSection}>
-        <h3 style={{ color: '#2196F3', marginBottom: '1rem', fontSize: '1.3rem', fontWeight: '600' }}>Danger Zone</h3>
-        <p style={{ color: '#CCCCCC', marginBottom: '1rem', lineHeight: '1.5' }}>
+        <h3 style={{ color: '#fff', marginBottom: '1rem', fontSize: '1.3rem', fontWeight: '600' }}>Danger Zone</h3>
+        <p style={{ color: '#fff', marginBottom: '1rem', lineHeight: '1.5' }}>
           This action will permanently delete all uploaded data, configurations, and chat histories. This cannot be undone.
         </p>
         <button

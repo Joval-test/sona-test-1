@@ -3,7 +3,7 @@ from threading import Thread, Timer
 from flask          import Flask, jsonify, send_from_directory, request, current_app, send_file
 from flask_cors     import CORS
 from functools      import wraps
-# from logging_utils  import stage_log
+from logging_utils  import stage_log
 import sys
 import logging
 import webbrowser
@@ -11,6 +11,7 @@ import pystray
 from PIL import Image
 import threading
 import signal
+import traceback
 # ---------------  domain logic  ---------------
 from core.company   import handle_company_files, handle_company_urls
 from core.user      import handle_user_files
@@ -24,12 +25,22 @@ from core.user_chat import user_chat_bp     #  public
 from core.admin     import admin_bp         #  protected
 from core.report    import report_bp
 from flask          import send_from_directory
+from core.agents.google_auth import GoogleAuthManager
+from core.company_info_manager import CompanyInfoManager
+from core.storage import Storage
+from core.agents.product_extractor import ProductExtractorAgent
+from core.agents.responsible_person import ResponsiblePersonAgent
+from core.agents.availability import AvailabilityAgent
+from core.agents.meeting_scheduler import MeetingSchedulerAgent
+from core.agents.email import EmailAgent
+import json
 
 # Configure Flask logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ---------------  app / conf  ---------------
+@stage_log(2)
 def create_app():
     if getattr(sys, 'frozen', False):
         # Running as compiled executable
@@ -62,6 +73,7 @@ def create_app():
     app.register_blueprint(user_chat_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(report_bp)
+    
 
     # @app.before_request
     # def log_request_info():
@@ -71,6 +83,7 @@ def create_app():
 
     # API Routes
     @app.route("/api/leads", methods=['GET'])
+    @stage_log(2)
     def api_leads():
         # logger.info("API: /api/leads called")
         try:
@@ -82,6 +95,7 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/send_emails", methods=["POST"])
+    @stage_log(2)
     def send_emails():
         try:
             if not request.json or not request.json.get("lead_ids"):
@@ -94,6 +108,7 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/company-files", methods=["POST"])
+    @stage_log(2)
     def upload_company_files():
         try:
             if not request.files:
@@ -106,6 +121,7 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/company-urls", methods=["POST"])
+    @stage_log(2)
     def upload_company_urls():
         try:
             if not request.json or not request.json.get("urls"):
@@ -118,7 +134,7 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/upload/user-files", methods=["POST"])
-    #@stage_log(1)
+    @stage_log(2)
     def upload_user_files():
         try:
             if not request.files:
@@ -131,35 +147,55 @@ def create_app():
             return jsonify({"error": str(e)}), 500
 
     @app.route("/api/settings", methods=["GET"])
+    @stage_log(2)
     def api_get_settings():
         # logger.info("API: /api/settings called")
         return jsonify(get_settings())
 
     @app.route("/api/settings/email", methods=["POST"])
+    @stage_log(2)
     def api_save_email_settings():
         data = request.json
         result = save_email_settings(data)
         return jsonify(result)
 
     @app.route("/api/settings/azure", methods=["POST"])
+    @stage_log(2)
     def api_save_azure_settings():
         data = request.json
         result = save_azure_settings(data)
         return jsonify(result)
 
     @app.route("/api/settings/private-link", methods=["POST"]) 
+    @stage_log(2)
     def api_save_private_link_settings():
         data = request.json
         result = save_private_link_config(data)
         return jsonify(result)
 
     @app.route("/api/clear-all", methods=["POST"])
+    @stage_log(2)
     def api_clear_all():
         result = clear_all_data()
         return jsonify({"message": "All data cleared successfully"} if result else {"message": "Failed to clear data"})
 
+    @app.route("/api/schedule_meeting", methods=["POST"])
+    @stage_log(2)
+    def api_schedule_meeting():
+        data = request.json
+        chat_summary = data.get("chat_summary", "")
+        lead_email = data.get("lead_email", "")
+        lead_name = data.get("lead_name", "")
+        if not chat_summary or not lead_email or not lead_name:
+            return jsonify({"success": False, "error": "Missing required fields."}), 400
+        result = orchestrate_meeting_flow(chat_summary, lead_email, lead_name)
+        return jsonify(result)
+
+    
+
     # Serve static files
     @app.route('/static/<path:path>')
+    @stage_log(3)
     def serve_static(path):
         # logger.info(f"Serving static file: {path}")
         try:
@@ -170,6 +206,7 @@ def create_app():
 
     # Serve other assets (like favicon.ico)
     @app.route('/<path:filename>')
+    @stage_log(3)
     def serve_asset(filename):
         # logger.info(f"Serving asset: {filename}")
         try:
@@ -180,9 +217,16 @@ def create_app():
             # logger.error(f"Error serving asset {filename}: {e}")
             return jsonify({"error": f"Failed to serve asset: {str(e)}"}), 500
 
+    # Catch-all for unmatched /api/* routes to return JSON 404
+    @app.route('/api/<path:path>')
+    @stage_log(3)
+    def catch_all_api(path):
+        return jsonify({"error": "API endpoint not found"}), 404
+
     # Serve React App
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
+    @stage_log(3)
     def catch_all(path):
         if path.startswith('api/'):
             return jsonify({"error": "API endpoint not found"}), 404
@@ -193,10 +237,12 @@ def create_app():
         return app.send_static_file('index.html')
 
     @app.errorhandler(404)
+    @stage_log(3)
     def not_found(e):
         return app.send_static_file('index.html')
 
     @app.after_request
+    @stage_log(4)
     def add_header(response):
         # Disable caching for all routes
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -204,14 +250,94 @@ def create_app():
         response.headers['Expires'] = '0'
         return response
 
+    storage = Storage()
+    company_info_manager = CompanyInfoManager(storage)
+    product_extractor = ProductExtractorAgent()
+    responsible_person_agent = ResponsiblePersonAgent(storage)
+    availability_agent = AvailabilityAgent()
+    meeting_scheduler = MeetingSchedulerAgent()
+    email_agent = EmailAgent()
+
+    @app.route("/api/company_info", methods=["GET"])
+    @stage_log(2)
+    def get_company_info():
+        return jsonify(company_info_manager.get_company_info())
+
+    @app.route("/api/company_info", methods=["POST"])
+    @stage_log(2)
+    def set_company_info():
+        data = request.json
+        company_info_manager.set_company_info(data)
+        return jsonify({"success": True})
+
+    @app.route("/api/products", methods=["GET"])
+    @stage_log(2)
+    def get_products():
+        return jsonify({"products": company_info_manager.get_products()})
+
+    @app.route("/api/products", methods=["POST"])
+    @stage_log(2)
+    def set_products():
+        if not request.is_json:
+            return jsonify({"error": "Request must be JSON"}), 400
+        data = request.get_json()
+        if data is None:
+            return jsonify({"error": "Invalid JSON"}), 400
+        if data.get("extract"):
+            company_info = data.get("company_info", "")
+            products = product_extractor.extract_products(company_info)
+            return jsonify({"products": products})
+        products = data.get("products", [])
+        company_info_manager.set_products(products)
+        return jsonify({"success": True})
+
+    @app.route("/api/responsible_person", methods=["GET"])
+    @stage_log(2)
+    def get_responsible_person():
+        product_name = request.args.get("product_name")
+        if not product_name:
+            return jsonify({"error": "Missing product_name"}), 400
+        return jsonify(company_info_manager.get_responsible_person(product_name))
+
+    @app.route("/api/responsible_person", methods=["POST"])
+    @stage_log(2)
+    def set_responsible_person():
+        data = request.json
+        product_name = data.get("product_name")
+        person = data.get("person")
+        if not product_name or not person:
+            return jsonify({"error": "Missing product_name or person"}), 400
+        company_info_manager.set_responsible_person(product_name, person)
+        return jsonify({"success": True})
+
+    # Global error handler for API endpoints to always return JSON
+    @app.errorhandler(Exception)
+    def handle_api_exceptions(error):
+        from werkzeug.exceptions import HTTPException
+        # Only intercept API routes
+        if request.path.startswith('/api/'):
+            code = 500
+            if isinstance(error, HTTPException):
+                code = error.code
+                description = error.description
+            else:
+                description = str(error)
+            # Optionally log the traceback for debugging
+            current_app.logger.error(f"API Exception: {description}\n{traceback.format_exc()}")
+            return jsonify({"error": description}), code
+        # For non-API routes, use default error handling
+        raise error
+
     return app
 
 # Create the app
 app = create_app()
 
+@stage_log(2)
 def open_browser():
     webbrowser.open('http://localhost:5000')
 
+@stage_log(2)
 def create_tray_icon(stop_function):
     try:
         # Create white background
@@ -255,6 +381,161 @@ def create_tray_icon(stop_function):
         menu=menu
     )
     return icon
+
+@stage_log(2)
+def orchestrate_meeting_flow(chat_summary: str, lead_email: str, lead_name: str, send_email: bool = True) -> dict:
+    # 1. Extract product from chat summary
+    company_info = storage.get_company_info().get('info', '')
+    products = product_extractor.extract_products(company_info)
+    if not products:
+        return {"success": False, "error": "No products found in company info."}
+    # For demo, pick the first product
+    product = products[0]
+    # 2. Find responsible person (with fallback)
+    responsible = responsible_person_agent.get_responsible_person(product)
+    if responsible.get('email', '').startswith('default-'):
+        logger.warning(f"No responsible person set for product '{product}'. Using default: {responsible}")
+    # 3. Check availability
+    slots = availability_agent.check_availability(lead_email, responsible['email'])
+    if not slots:
+        return {"success": False, "error": "No available slots found."}
+    slot = slots[0]
+    # 4. Schedule meeting
+    meeting_link = meeting_scheduler.create_meeting(slot, [lead_email, responsible['email']])
+    # 5. Prepare email
+    details = {
+        'subject': f'Meeting Scheduled for {product}',
+        'body': f'Hi {lead_name}, your meeting for {product} is scheduled with {responsible["name"]}.'
+    }
+    email_content = f"Hi {lead_name}, your meeting for {product} is scheduled with {responsible['name']} at {slot}. Meeting Link: {meeting_link}"
+    email_sent = False
+    if send_email:
+        email_sent = email_agent.send_meeting_invite(lead_email, meeting_link, details)
+    return {
+        "success": True if meeting_link else False,
+        "meeting_link": meeting_link,
+        "slot": slot,
+        "responsible": responsible,
+        "product": product,
+        "email_content": email_content,
+        "email_sent": email_sent
+    }
+
+# --- New Endpoints for Meeting Proposal/Review/Send ---
+from flask import abort
+import pandas as pd
+import json
+
+@app.route("/api/generate_meeting_proposal", methods=["POST"])
+@stage_log(2)
+def api_generate_meeting_proposal():
+    data = request.json
+    lead_id = data.get("lead_id")
+    if not lead_id:
+        return jsonify({"success": False, "error": "Missing lead_id"}), 400
+    REPORT_PATH = 'data/report.xlsx'
+    if not os.path.exists(REPORT_PATH):
+        return jsonify({"success": False, "error": "No report found"}), 404
+    df = pd.read_excel(REPORT_PATH)
+    mask = df['ID'].astype(str) == str(lead_id)
+    if not mask.any():
+        return jsonify({"success": False, "error": "Lead not found"}), 404
+    chat_summary = df.loc[mask, 'Chat Summary'].iloc[0]
+    lead_email = df.loc[mask, 'Email'].iloc[0]
+    lead_name = df.loc[mask, 'Name'].iloc[0]
+    result = orchestrate_meeting_flow(chat_summary, lead_email, lead_name, send_email=False)
+    if result.get('success'):
+        df.loc[mask, 'Pending Meeting Email'] = result['email_content']
+        df.loc[mask, 'Pending Meeting Info'] = json.dumps(result)
+        df.loc[mask, 'Meeting Email Sent'] = 'No'
+        df.to_excel(REPORT_PATH, index=False)
+        return jsonify({"success": True, "meeting_info": result})
+    else:
+        return jsonify({"success": False, "error": result.get('error', 'Unknown error')})
+
+@app.route("/api/review_meeting_email", methods=["POST"])
+@stage_log(2)
+def api_review_meeting_email():
+    data = request.json
+    lead_id = data.get("lead_id")
+    if not lead_id:
+        return jsonify({"success": False, "error": "Missing lead_id"}), 400
+    REPORT_PATH = 'data/report.xlsx'
+    if not os.path.exists(REPORT_PATH):
+        return jsonify({"success": False, "error": "No report found"}), 404
+    df = pd.read_excel(REPORT_PATH)
+    mask = df['ID'].astype(str) == str(lead_id)
+    if not mask.any():
+        return jsonify({"success": False, "error": "Lead not found"}), 404
+    email_content = df.loc[mask, 'Pending Meeting Email'].iloc[0]
+    meeting_info = df.loc[mask, 'Pending Meeting Info'].iloc[0]
+    return jsonify({"success": True, "email_content": email_content, "meeting_info": meeting_info})
+
+@app.route("/api/send_meeting_email", methods=["POST"])
+@stage_log(2)
+def api_send_meeting_email():
+    data = request.json
+    lead_id = data.get("lead_id")
+    if not lead_id:
+        return jsonify({"success": False, "error": "Missing lead_id"}), 400
+    REPORT_PATH = 'data/report.xlsx'
+    if not os.path.exists(REPORT_PATH):
+        return jsonify({"success": False, "error": "No report found"}), 404
+    df = pd.read_excel(REPORT_PATH)
+    mask = df['ID'].astype(str) == str(lead_id)
+    if not mask.any():
+        return jsonify({"success": False, "error": "Lead not found"}), 404
+    meeting_info_json = df.loc[mask, 'Pending Meeting Info'].iloc[0]
+    if not meeting_info_json:
+        return jsonify({"success": False, "error": "No pending meeting info"}), 400
+    meeting_info = json.loads(meeting_info_json)
+    lead_email = df.loc[mask, 'Email'].iloc[0]
+    # Actually send the email
+    details = {
+        'subject': f"Meeting Scheduled for {meeting_info.get('product', '')}",
+        'body': meeting_info.get('email_content', '')
+    }
+    meeting_link = meeting_info.get('meeting_link', '')
+    email_sent = email_agent.send_meeting_invite(lead_email, meeting_link, details)
+    if email_sent:
+        df.loc[mask, 'Meeting Email Sent'] = 'Yes'
+        df.to_excel(REPORT_PATH, index=False)
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Failed to send email"})
+
+DEFAULT_RESPONSIBLE_PATH = "data/default_responsible_person.json"
+
+def load_default_responsible():
+    if os.path.exists(DEFAULT_RESPONSIBLE_PATH):
+        with open(DEFAULT_RESPONSIBLE_PATH, "r") as f:
+            try:
+                data = json.load(f)
+                return {
+                    "name": data.get("name", "Default Owner"),
+                    "email": data.get("email", "default-owner@yourcompany.com")
+                }
+            except Exception:
+                pass
+    return {"name": "Default Owner", "email": "default-owner@yourcompany.com"}
+
+def save_default_responsible(name, email):
+    os.makedirs(os.path.dirname(DEFAULT_RESPONSIBLE_PATH), exist_ok=True)
+    with open(DEFAULT_RESPONSIBLE_PATH, "w") as f:
+        json.dump({"name": name, "email": email}, f)
+
+@app.route("/api/default_responsible_person", methods=["GET", "POST"])
+def api_default_responsible_person():
+    if request.method == "GET":
+        return jsonify(load_default_responsible())
+    elif request.method == "POST":
+        data = request.get_json()
+        name = data.get("name", "Default Owner")
+        email = data.get("email", "default-owner@yourcompany.com")
+        save_default_responsible(name, email)
+        return jsonify({"success": True, "name": name, "email": email})
+    else:
+        return jsonify({"error": "Method not allowed"}), 405
 
 if __name__ == "__main__":
     logger.info("\n=== Starting Flask App ===")

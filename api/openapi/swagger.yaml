@@ -680,3 +680,341 @@ paths:
                 properties:
                   message:
                     type: string
+  /api/schedule_meeting:
+    post:
+      summary: Schedule a meeting between a lead and a responsible person for a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chat_summary:
+                  type: string
+                  description: Chat summary or context for the meeting
+                lead_email:
+                  type: string
+                  description: Email of the lead
+                lead_name:
+                  type: string
+                  description: Name of the lead
+      responses:
+        '200':
+          description: Meeting scheduling result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  meeting_link:
+                    type: string
+                  slot:
+                    type: string
+                  responsible:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      email:
+                        type: string
+                  product:
+                    type: string
+        '400':
+          description: Bad request - Missing required fields
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/products:
+    get:
+      summary: Get all products
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      type: string
+    post:
+      summary: Set products or extract products from company info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                products:
+                  type: array
+                  items:
+                    type: string
+                  description: List of products to set
+                extract:
+                  type: boolean
+                  description: If true, extract products from company info using LLM/Chroma
+                company_info:
+                  type: string
+                  description: Company info text to use for extraction
+      responses:
+        '200':
+          description: Success or extracted products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  products:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/responsible_person:
+    get:
+      summary: Get responsible person for a product
+      parameters:
+        - in: query
+          name: product_name
+          schema:
+            type: string
+          required: true
+          description: Name of the product
+      responses:
+        '200':
+          description: Responsible person info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  email:
+                    type: string
+        '400':
+          description: Missing product_name
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+    post:
+      summary: Set responsible person for a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_name:
+                  type: string
+                  description: Name of the product
+                person:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    email:
+                      type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Missing product_name or person
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /api/generate_meeting_proposal:
+    post:
+      summary: Generate a meeting proposal for a lead (manual trigger)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lead_id:
+                  type: string
+                  description: Lead ID
+      responses:
+        '200':
+          description: Meeting proposal generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  meeting_info:
+                    type: object
+                    properties:
+                      meeting_link: { type: string }
+                      slot: { type: string }
+                      responsible: { type: object }
+                      product: { type: string }
+                      email_content: { type: string }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/review_meeting_email:
+    post:
+      summary: Review the pending meeting email for a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lead_id:
+                  type: string
+                  description: Lead ID
+      responses:
+        '200':
+          description: Pending meeting email content
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  email_content:
+                    type: string
+                  meeting_info:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/send_meeting_email:
+    post:
+      summary: Send the pending meeting email for a lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lead_id:
+                  type: string
+                  description: Lead ID
+      responses:
+        '200':
+          description: Meeting email sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: Lead not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+  /api/default_responsible_person:
+    get:
+      summary: Get the default responsible person (fallback)
+      responses:
+        '200':
+          description: Default responsible person
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  email:
+                    type: string
+    post:
+      summary: Set the default responsible person (fallback)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Default responsible person updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  name:
+                    type: string
+                  email:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }

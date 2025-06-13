@@ -127,90 +127,57 @@ const [expandedId, setExpandedId] = useState(null);
 const [searchTerm, setSearchTerm] = useState("");
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState(null);
+// Meeting modal state
+const [modalOpen, setModalOpen] = useState(false);
+const [modalEmailContent, setModalEmailContent] = useState("");
+const [modalLeadId, setModalLeadId] = useState(null);
+const [meetingLoading, setMeetingLoading] = useState(false);
 
-// // Fetch data effect
-useEffect(() => {
-  async function fetchData() {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // For testing purposes, use mock data
-      // Replace this with your actual API call
-      const useMockData = false; // Set to false when API is ready
-      
-      if (useMockData) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const data = mockData;
-        
-        if (data && Array.isArray(data.leads)) {
-          setLeads(data.leads); 
-          setFilteredLeads(data.leads);
-        } else {
-          setLeads([]);
-          setFilteredLeads([]);
-          setError("Mock data structure is invalid");
-        }
-      } else {        const res = await fetch("/api/report");
-        
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        
-        const data = await res.json();
-        
-        if (data && Array.isArray(data.leads)) {
-          setLeads(data.leads); 
-          setFilteredLeads(data.leads);
-        } else {
-          setLeads([]);
-          setFilteredLeads([]);
-          setError("API response did not contain leads array");
-        }
-      }
-    } catch (error) {
-      console.error("Failed to fetch leads", error);
-      setError(`Failed to fetch leads: ${error.message}`);
+// Fetch data effect
+const fetchLeads = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    const res = await fetch("/api/report");
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const data = await res.json();
+    if (data && Array.isArray(data.leads)) {
+      setLeads(data.leads);
+      setFilteredLeads(data.leads);
+    } else {
       setLeads([]);
       setFilteredLeads([]);
-    } finally {
-      setLoading(false);
+      setError("API response did not contain leads array");
     }
+  } catch (error) {
+    setError(`Failed to fetch leads: ${error.message}`);
+    setLeads([]);
+    setFilteredLeads([]);
+  } finally {
+    setLoading(false);
   }
-  fetchData();
-}, []);
+};
+
+useEffect(() => { fetchLeads(); }, []);
 
 // Filtering/search effect
 useEffect(() => {
-  let updated = [...leads]; // Create a copy
-  
-  console.log("Filtering leads. Current filter:", filter, "Search term:", searchTerm);
-  console.log("Original leads count:", leads.length);
-
+  let updated = [...leads];
   if (filter !== "All") {
     updated = updated.filter((lead) => {
       const status = lead["Status (Hot/Warm/Cold/Not Responded)"] || "";
-      const match = status.toLowerCase().trim() === filter.toLowerCase().trim();
-      console.log(`Lead ${lead.Name}: status="${status}", filter="${filter}", match=${match}`);
-      return match;
+      return status.toLowerCase().trim() === filter.toLowerCase().trim();
     });
-    console.log("After filter:", updated.length, "leads");
   }
-
   if (searchTerm.trim() !== "") {
     const term = searchTerm.toLowerCase().trim();
     updated = updated.filter((lead) => {
       const nameMatch = (lead.Name || "").toLowerCase().includes(term);
       const emailMatch = (lead.Email || "").toLowerCase().includes(term);
       const companyMatch = (lead.Company || "").toLowerCase().includes(term);
-      const match = nameMatch || emailMatch || companyMatch;
-      console.log(`Search "${term}" in lead ${lead.Name}: name=${nameMatch}, email=${emailMatch}, company=${companyMatch}, match=${match}`);
-      return match;
+      return nameMatch || emailMatch || companyMatch;
     });
-    console.log("After search:", updated.length, "leads");
   }
-
   setFilteredLeads(updated);
   setExpandedId(null);
 }, [filter, searchTerm, leads]);
@@ -219,7 +186,62 @@ const toggleExpand = (id) => {
   setExpandedId(expandedId === id ? null : id);
 };
 
-// Handle empty states
+// --- Meeting Scheduling Logic ---
+// Helper to get meeting fields from lead (handles different casing/keys)
+const getMeetingFields = (lead) => {
+  return {
+    pendingMeetingEmail: lead["Pending Meeting Email"] || lead.pending_meeting_email || "",
+    meetingEmailSent: lead["Meeting Email Sent"] || lead.meeting_email_sent || "",
+    pendingMeetingInfo: lead["Pending Meeting Info"] || lead.pending_meeting_info || "",
+    status: lead["Status (Hot/Warm/Cold/Not Responded)"] || lead.status || "",
+    chatSummary: lead["Chat Summary"] || lead.chat_summary || "",
+  };
+};
+
+// Generate meeting proposal for Warm/Cold
+const handleGenerateMeeting = async (leadId) => {
+  setMeetingLoading(true);
+  await fetch("/api/generate_meeting_proposal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_id: leadId })
+  });
+  await fetchLeads();
+  setMeetingLoading(false);
+};
+
+// Review meeting email (open modal)
+const handleReviewEmail = async (leadId) => {
+  setMeetingLoading(true);
+  const res = await fetch("/api/review_meeting_email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_id: leadId })
+  });
+  const data = await res.json();
+  setModalEmailContent(data.email_content || "");
+  setModalLeadId(leadId);
+  setModalOpen(true);
+  setMeetingLoading(false);
+};
+
+// Send meeting email
+const handleSendEmail = async () => {
+  if (!modalLeadId) return;
+  setMeetingLoading(true);
+  await fetch("/api/send_meeting_email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_id: modalLeadId })
+  });
+  setModalOpen(false);
+  setModalLeadId(null);
+  setModalEmailContent("");
+  await fetchLeads();
+  setMeetingLoading(false);
+};
+
+// --- UI ---
 if (loading) {
   return (
     <div style={styles.container}>
@@ -308,7 +330,12 @@ return (
 
         {/* Show leads list */}
         {filteredLeads.map((lead, index) => {
-          console.log(`Rendering lead ${index}:`, lead);
+          const {
+            pendingMeetingEmail,
+            meetingEmailSent,
+            status,
+            chatSummary
+          } = getMeetingFields(lead);
           return (
             <div
               key={lead.ID || index}
@@ -344,14 +371,91 @@ return (
                   <div><strong>Source:</strong> {lead.source || "-"}</div>
                   <div>
                     <strong>Chat Summary:</strong>{" "}
-                    {lead["Chat Summary"] ? lead["Chat Summary"] : "-"}
+                    {chatSummary ? chatSummary : "-"}
                   </div>
-                  <div><strong>Status:</strong> {lead["Status (Hot/Warm/Cold/Not Responded)"] || "-"}</div>
+                  <div><strong>Status:</strong> {status || "-"}</div>
+
+                  {/* --- MEETING SCHEDULER UI --- */}
+                  {chatSummary && (
+                    <div style={{ marginTop: '1rem' }}>
+                      {/* Hot lead logic */}
+                      {status === 'Hot' && (
+                        <>
+                          {meetingEmailSent === 'Yes' ? (
+                            <div style={{ color: '#4caf50', fontWeight: 600 }}>Meeting Sent</div>
+                          ) : pendingMeetingEmail ? (
+                            <button
+                              style={{ ...styles.linkButton, backgroundColor: '#ff9800', color: '#fff', marginRight: 8 }}
+                              onClick={e => { e.stopPropagation(); handleReviewEmail(lead.ID); }}
+                              disabled={meetingLoading}
+                            >
+                              Review Email
+                            </button>
+                          ) : (
+                            <span style={{ color: '#aaa' }}>Generating proposal...</span>
+                          )}
+                        </>
+                      )}
+                      {/* Warm/Cold logic */}
+                      {(status === 'Warm' || status === 'Cold') && (
+                        <>
+                          {!pendingMeetingEmail ? (
+                            <button
+                              style={{ ...styles.linkButton, backgroundColor: '#2196F3', color: '#fff', marginRight: 8 }}
+                              onClick={e => { e.stopPropagation(); handleGenerateMeeting(lead.ID); }}
+                              disabled={meetingLoading}
+                            >
+                              {meetingLoading ? 'Generating...' : 'Generate Meeting Link'}
+                            </button>
+                          ) : meetingEmailSent === 'Yes' ? (
+                            <div style={{ color: '#4caf50', fontWeight: 600 }}>Meeting Sent</div>
+                          ) : (
+                            <button
+                              style={{ ...styles.linkButton, backgroundColor: '#ff9800', color: '#fff', marginRight: 8 }}
+                              onClick={e => { e.stopPropagation(); handleReviewEmail(lead.ID); }}
+                              disabled={meetingLoading}
+                            >
+                              Review Email
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })}
+
+        {/* --- MODAL FOR EMAIL REVIEW/SEND --- */}
+        {modalOpen && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <div style={{ background: '#232323', padding: 32, borderRadius: 12, minWidth: 350, maxWidth: 600 }}>
+              <h2 style={{ color: '#ff9800', marginBottom: 16 }}>Review Meeting Email</h2>
+              <pre style={{ background: '#181818', color: '#fff', padding: 16, borderRadius: 8, maxHeight: 300, overflow: 'auto' }}>{modalEmailContent}</pre>
+              <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                <button
+                  style={{ ...styles.linkButton, backgroundColor: '#2196F3', color: '#fff' }}
+                  onClick={handleSendEmail}
+                  disabled={meetingLoading}
+                >
+                  {meetingLoading ? 'Sending...' : 'Send'}
+                </button>
+                <button
+                  style={{ ...styles.linkButton, backgroundColor: '#444', color: '#fff' }}
+                  onClick={() => setModalOpen(false)}
+                  disabled={meetingLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     )}
   </div>
