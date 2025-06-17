@@ -2,6 +2,11 @@ from core.chat_logic import setup_llm_and_embeddings, setup_company_collection
 
 class ProductExtractorAgent:
     def __init__(self):
+        self.llm = None
+        self.embeddings = None
+        self.company_collection = None
+
+    def _initialize_components(self):
         self.llm, self.embeddings = setup_llm_and_embeddings()
         self.company_collection = setup_company_collection(self.embeddings)
 
@@ -13,6 +18,8 @@ class ProductExtractorAgent:
         Returns:
             list: List of product names (strings).
         """
+        if self.llm is None:
+            self._initialize_components()
         # Retrieve all documents from Chroma
         try:
             all_docs = self.company_collection.get()

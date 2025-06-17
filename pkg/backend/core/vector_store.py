@@ -1,8 +1,8 @@
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
-import os
 from langchain_openai import AzureOpenAIEmbeddings
 from logging_utils import stage_log
+import config
 
 PERSIST_DIRECTORY = 'data/chroma_store'
 
@@ -14,10 +14,10 @@ class FallbackEmbeddings:
 
 stage_log(1)
 def get_azure_embeddings():
-    endpoint = os.environ.get('AZURE_ENDPOINT', '')
-    deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
-    api_version = os.environ.get('AZURE_API_VERSION', '')
-    api_key = os.environ.get('AZURE_API_KEY', '')
+    endpoint = config.AZURE_OPENAI_ENDPOINT
+    deployment = config.AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+    api_version = config.AZURE_OPENAI_API_VERSION
+    api_key = config.AZURE_OPENAI_API_KEY
     if endpoint and deployment and api_version and api_key:
         return AzureOpenAIEmbeddings(
             azure_endpoint=endpoint,

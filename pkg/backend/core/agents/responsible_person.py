@@ -1,11 +1,12 @@
 import os
 import json
+from config import DEFAULT_OWNER_NAME, DEFAULT_OWNER_EMAIL
 
 class ResponsiblePersonAgent:
     def __init__(self, storage):
         self.storage = storage
-        self.default_name = os.environ.get("DEFAULT_OWNER_NAME", "Default Owner")
-        self.default_email = os.environ.get("DEFAULT_OWNER_EMAIL", "default-owner@yourcompany.com")
+        self.default_name = DEFAULT_OWNER_NAME
+        self.default_email = DEFAULT_OWNER_EMAIL
         self.default_path = os.path.join(os.path.dirname(__file__), '../../data/default_responsible_person.json')
 
     def get_fallback_default(self):

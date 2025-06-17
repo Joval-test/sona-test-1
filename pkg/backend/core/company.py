@@ -1,11 +1,13 @@
 import os
 import tempfile
-from langchain_docling import DoclingLoader
-from langchain_docling.loader import ExportType
+# from docling import DoclingLoader
+# from langchain_docling.loader import ExportType
+from docling.document_converter import DocumentConverter
 from langchain_core.documents import Document
 from core.vector_store import get_company_collection, process_and_store_content
 from core.utils import ensure_data_dir
 from logging_utils import stage_log
+import easyocr
 
 DATA_DIR = 'data/company_files'
 
@@ -15,14 +17,16 @@ def handle_company_files(files):
     company_collection = get_company_collection()
     results = []
     has_error = False
+    converter = DocumentConverter()
     
     for file in files:
         try:
-            if not file.filename.lower().endswith('.pdf'):
+            ext = os.path.splitext(file.filename)[1].lower()
+            if ext not in ['.pdf', '.doc', '.docx']:
                 results.append({
                     'file': file.filename,
                     'status': 'error',
-                    'error': 'Only PDF files are supported'
+                    'error': 'Only PDF, DOC, and DOCX files are supported'
                 })
                 has_error = True
                 continue
@@ -31,15 +35,18 @@ def handle_company_files(files):
             file.save(file_path)
             
             try:
-                loader = DoclingLoader(file_path=file_path, export_type=ExportType.MARKDOWN)
-                docs = loader.load_and_split()
+                result = converter.convert(file_path)
+                docs = result.document.export_to_markdown()
+                # docs = loader.load_and_split()
                 if not docs:
-                    raise Exception("No content could be extracted from the PDF")
-                    
-                status = process_and_store_content(docs, company_collection, 'pdf', file.filename)
+                    raise Exception(f"No content could be extracted from the {ext.upper()} file")
+                
+                # Use the extension (without dot) as the type
+                file_type = ext[1:]
+                status = process_and_store_content(docs, company_collection, file_type, file.filename)
                 if status == 'error':
                     raise Exception("Failed to process and store content")
-                    
+                
                 results.append({
                     'file': file.filename,
                     'status': 'success',
@@ -61,7 +68,7 @@ def handle_company_files(files):
                         os.remove(file_path)
                 except Exception as del_err:
                     print(f"Warning: Could not delete uploaded company file {file_path}: {del_err}")
-                    
+                
         except Exception as e:
             results.append({
                 'file': file.filename,

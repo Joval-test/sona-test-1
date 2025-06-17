@@ -16,8 +16,8 @@ import traceback
 from core.company   import handle_company_files, handle_company_urls
 from core.user      import handle_user_files
 from core.settings  import (
-    save_email_settings, save_azure_settings, get_settings,
-    clear_all_data, get_private_link_config, save_private_link_config
+    save_email_settings, save_azure_settings,
+    clear_all_data, save_private_link_config, InvalidCredentialsError, ConfigurationError
 )
 # from core.files     import get_uploaded_files
 from core.leads     import get_grouped_leads, send_emails_to_leads
@@ -146,38 +146,62 @@ def create_app():
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-    @app.route("/api/settings", methods=["GET"])
-    @stage_log(2)
-    def api_get_settings():
-        # logger.info("API: /api/settings called")
-        return jsonify(get_settings())
+    # @app.route("/api/settings", methods=["GET"])
+    # @stage_log(2)
+    # def api_get_settings():
+    #     # logger.info("API: /api/settings called")
+    #     return jsonify(get_settings())
 
     @app.route("/api/settings/email", methods=["POST"])
     @stage_log(2)
     def api_save_email_settings():
         data = request.json
-        result = save_email_settings(data)
-        return jsonify(result)
+        try:
+            save_email_settings(data)
+            return jsonify({"success": True, "message": "Email settings saved successfully"}), 200
+        except InvalidCredentialsError as e:
+            return jsonify({"error": str(e)}), 400
+        except ConfigurationError as e:
+            return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            return jsonify({"error": "An unexpected error occurred: " + str(e)}), 500
 
     @app.route("/api/settings/azure", methods=["POST"])
     @stage_log(2)
     def api_save_azure_settings():
         data = request.json
-        result = save_azure_settings(data)
-        return jsonify(result)
+        try:
+            save_azure_settings(data)
+            return jsonify({"success": True, "message": "Azure settings saved successfully"}), 200
+        except InvalidCredentialsError as e:
+            return jsonify({"error": str(e)}), 400
+        except ConfigurationError as e:
+            return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            return jsonify({"error": "An unexpected error occurred: " + str(e)}), 500
 
     @app.route("/api/settings/private-link", methods=["POST"]) 
     @stage_log(2)
     def api_save_private_link_settings():
         data = request.json
-        result = save_private_link_config(data)
-        return jsonify(result)
+        try:
+            save_private_link_config(data)
+            return jsonify({"success": True, "message": "Private link settings saved successfully"}), 200
+        except ConfigurationError as e:
+            return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            return jsonify({"error": "An unexpected error occurred: " + str(e)}), 500
 
     @app.route("/api/clear-all", methods=["POST"])
     @stage_log(2)
     def api_clear_all():
-        result = clear_all_data()
-        return jsonify({"message": "All data cleared successfully"} if result else {"message": "Failed to clear data"})
+        try:
+            clear_all_data()
+            return jsonify({"message": "All data cleared successfully"}), 200
+        except ConfigurationError as e:
+            return jsonify({"error": str(e)}), 500
+        except Exception as e:
+            return jsonify({"error": "An unexpected error occurred: " + str(e)}), 500
 
     @app.route("/api/schedule_meeting", methods=["POST"])
     @stage_log(2)
@@ -188,8 +212,15 @@ def create_app():
         lead_name = data.get("lead_name", "")
         if not chat_summary or not lead_email or not lead_name:
             return jsonify({"success": False, "error": "Missing required fields."}), 400
-        result = orchestrate_meeting_flow(chat_summary, lead_email, lead_name)
-        return jsonify(result)
+        try:
+            result = orchestrate_meeting_flow(chat_summary, lead_email, lead_name)
+            return jsonify(result), 200
+        except (MeetingSchedulingError, ConfigurationError) as e:
+            logger.error(f"Meeting scheduling error: {e}")
+            return jsonify({"success": False, "error": str(e)}), 400
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during meeting scheduling: {e}")
+            return jsonify({"success": False, "error": "An unexpected error occurred during meeting scheduling: " + str(e)}), 500
 
     
 
@@ -388,7 +419,7 @@ def orchestrate_meeting_flow(chat_summary: str, lead_email: str, lead_name: str,
     company_info = storage.get_company_info().get('info', '')
     products = product_extractor.extract_products(company_info)
     if not products:
-        return {"success": False, "error": "No products found in company info."}
+        raise MeetingSchedulingError("No products found in company info.")
     # For demo, pick the first product
     product = products[0]
     # 2. Find responsible person (with fallback)
@@ -398,10 +429,12 @@ def orchestrate_meeting_flow(chat_summary: str, lead_email: str, lead_name: str,
     # 3. Check availability
     slots = availability_agent.check_availability(lead_email, responsible['email'])
     if not slots:
-        return {"success": False, "error": "No available slots found."}
+        raise MeetingSchedulingError("No available slots found.")
     slot = slots[0]
     # 4. Schedule meeting
     meeting_link = meeting_scheduler.create_meeting(slot, [lead_email, responsible['email']])
+    if not meeting_link:
+        raise MeetingSchedulingError("Failed to create meeting link.")
     # 5. Prepare email
     details = {
         'subject': f'Meeting Scheduled for {product}',
@@ -411,8 +444,10 @@ def orchestrate_meeting_flow(chat_summary: str, lead_email: str, lead_name: str,
     email_sent = False
     if send_email:
         email_sent = email_agent.send_meeting_invite(lead_email, meeting_link, details)
+        if not email_sent:
+            raise MeetingSchedulingError("Failed to send meeting invite email.")
     return {
-        "success": True if meeting_link else False,
+        "success": True,
         "meeting_link": meeting_link,
         "slot": slot,
         "responsible": responsible,
@@ -435,23 +470,26 @@ def api_generate_meeting_proposal():
         return jsonify({"success": False, "error": "Missing lead_id"}), 400
     REPORT_PATH = 'data/report.xlsx'
     if not os.path.exists(REPORT_PATH):
-        return jsonify({"success": False, "error": "No report found"}), 404
-    df = pd.read_excel(REPORT_PATH)
+        raise ConfigurationError("No report found: report.xlsx does not exist.")
+    try:
+        df = pd.read_excel(REPORT_PATH)
+    except Exception as e:
+        raise ConfigurationError(f"Failed to read report file: {e}")
+
     mask = df['ID'].astype(str) == str(lead_id)
     if not mask.any():
-        return jsonify({"success": False, "error": "Lead not found"}), 404
+        raise MeetingSchedulingError("Lead not found in report.")
     chat_summary = df.loc[mask, 'Chat Summary'].iloc[0]
     lead_email = df.loc[mask, 'Email'].iloc[0]
     lead_name = df.loc[mask, 'Name'].iloc[0]
+    
     result = orchestrate_meeting_flow(chat_summary, lead_email, lead_name, send_email=False)
-    if result.get('success'):
-        df.loc[mask, 'Pending Meeting Email'] = result['email_content']
-        df.loc[mask, 'Pending Meeting Info'] = json.dumps(result)
-        df.loc[mask, 'Meeting Email Sent'] = 'No'
-        df.to_excel(REPORT_PATH, index=False)
-        return jsonify({"success": True, "meeting_info": result})
-    else:
-        return jsonify({"success": False, "error": result.get('error', 'Unknown error')})
+    
+    df.loc[mask, 'Pending Meeting Email'] = result['email_content']
+    df.loc[mask, 'Pending Meeting Info'] = json.dumps(result)
+    df.loc[mask, 'Meeting Email Sent'] = 'No'
+    df.to_excel(REPORT_PATH, index=False)
+    return jsonify({"success": True, "meeting_info": result})
 
 @app.route("/api/review_meeting_email", methods=["POST"])
 @stage_log(2)
@@ -462,13 +500,22 @@ def api_review_meeting_email():
         return jsonify({"success": False, "error": "Missing lead_id"}), 400
     REPORT_PATH = 'data/report.xlsx'
     if not os.path.exists(REPORT_PATH):
-        return jsonify({"success": False, "error": "No report found"}), 404
-    df = pd.read_excel(REPORT_PATH)
+        raise ConfigurationError("No report found: report.xlsx does not exist.")
+    try:
+        df = pd.read_excel(REPORT_PATH)
+    except Exception as e:
+        raise ConfigurationError(f"Failed to read report file: {e}")
+    
     mask = df['ID'].astype(str) == str(lead_id)
     if not mask.any():
-        return jsonify({"success": False, "error": "Lead not found"}), 404
+        raise MeetingSchedulingError("Lead not found in report.")
     email_content = df.loc[mask, 'Pending Meeting Email'].iloc[0]
     meeting_info = df.loc[mask, 'Pending Meeting Info'].iloc[0]
+    if not email_content:
+        raise MeetingSchedulingError("No pending meeting email content found for this lead.")
+    if not meeting_info:
+        raise MeetingSchedulingError("No pending meeting info found for this lead.")
+    
     return jsonify({"success": True, "email_content": email_content, "meeting_info": meeting_info})
 
 @app.route("/api/send_meeting_email", methods=["POST"])
@@ -480,15 +527,22 @@ def api_send_meeting_email():
         return jsonify({"success": False, "error": "Missing lead_id"}), 400
     REPORT_PATH = 'data/report.xlsx'
     if not os.path.exists(REPORT_PATH):
-        return jsonify({"success": False, "error": "No report found"}), 404
-    df = pd.read_excel(REPORT_PATH)
+        raise ConfigurationError("No report found: report.xlsx does not exist.")
+    try:
+        df = pd.read_excel(REPORT_PATH)
+    except Exception as e:
+        raise ConfigurationError(f"Failed to read report file: {e}")
+
     mask = df['ID'].astype(str) == str(lead_id)
     if not mask.any():
-        return jsonify({"success": False, "error": "Lead not found"}), 404
+        raise MeetingSchedulingError("Lead not found in report.")
     meeting_info_json = df.loc[mask, 'Pending Meeting Info'].iloc[0]
     if not meeting_info_json:
-        return jsonify({"success": False, "error": "No pending meeting info"}), 400
-    meeting_info = json.loads(meeting_info_json)
+        raise MeetingSchedulingError("No pending meeting info.")
+    try:
+        meeting_info = json.loads(meeting_info_json)
+    except json.JSONDecodeError:
+        raise MeetingSchedulingError("Invalid JSON for pending meeting info.")
     lead_email = df.loc[mask, 'Email'].iloc[0]
     # Actually send the email
     details = {
@@ -502,7 +556,7 @@ def api_send_meeting_email():
         df.to_excel(REPORT_PATH, index=False)
         return jsonify({"success": True})
     else:
-        return jsonify({"success": False, "error": "Failed to send email"})
+        raise MeetingSchedulingError("Failed to send email.")
 
 DEFAULT_RESPONSIBLE_PATH = "data/default_responsible_person.json"
 
@@ -555,7 +609,6 @@ if __name__ == "__main__":
             logger.error(f"Error reading index.html: {e}")
     else:
         logger.error("index.html not found!")
-        
     # logger.info("Static folder contents:")
     # if os.path.exists(app.static_folder):
     #     for root, dirs, files in os.walk(app.static_folder):
@@ -571,8 +624,7 @@ if __name__ == "__main__":
     #     logger.info(f"Route: {rule.rule} - Methods: {rule.methods}")
     # logger.info("=========================\n")
     
-    # Disable reloader when running as executable
-    # use_reloader = not getattr(sys, 'frozen', False)
+
     
     server_running = threading.Event()
     server_running.set()
@@ -594,9 +646,9 @@ if __name__ == "__main__":
         app.run(
             debug=True, 
             port=5000, 
-            use_reloader=False,
-            host='0.0.0.0'
+            host='0.0.0.0',
+            use_reloader=False
         )
     finally:
         if icon_thread.is_alive():
-            icon.stop()
+            icon.stop() 

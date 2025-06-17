@@ -6,6 +6,9 @@ import os
 Base = declarative_base()
 DB_PATH = 'sqlite:///data/companyinfo.db'
 
+os.makedirs("data", exist_ok=True)
+
+
 class CompanyInfo(Base):
     __tablename__ = 'company_info'
     id = Column(Integer, primary_key=True)

@@ -5,30 +5,8 @@ from langchain.schema import HumanMessage
 import os
 from logging_utils import stage_log
 from .chat_manager import ChatManager
+from .settings import setup_llm_and_embeddings
 
-def setup_llm_and_embeddings():
-    azure_endpoint = os.environ.get('AZURE_ENDPOINT', '')
-    azure_deployment = os.environ.get('AZURE_DEPLOYMENT', '')
-    azure_api_version = os.environ.get('AZURE_API_VERSION', '')
-    azure_api_key = os.environ.get('AZURE_API_KEY', '')
-    azure_embedding_deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
-    
-    embeddings = AzureOpenAIEmbeddings(
-        azure_endpoint=azure_endpoint,
-        azure_deployment=azure_embedding_deployment,
-        openai_api_version=azure_api_version,
-        api_key=azure_api_key
-    )
-    
-    llm = AzureChatOpenAI(
-        azure_endpoint=azure_endpoint,
-        azure_deployment=azure_deployment,
-        api_version=azure_api_version,
-        api_key=azure_api_key,
-        temperature=0.1
-    )
-    
-    return llm, embeddings
 
 def setup_company_collection(embeddings):
     return Chroma(

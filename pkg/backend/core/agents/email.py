@@ -1,5 +1,7 @@
 from core.leads import send_email_real
 import os
+import json
+import config
 
 class EmailAgent:
     def __init__(self, email_client=None):
@@ -15,8 +17,8 @@ class EmailAgent:
         Returns:
             bool: Success status.
         """
-        sender_email = os.environ.get('EMAIL_SENDER', '')
-        sender_password = os.environ.get('EMAIL_PASSWORD', '')
+        sender_email = config.EMAIL_SENDER
+        sender_password = config.EMAIL_PASSWORD
         subject = details.get('subject', 'Meeting Scheduled')
         message = f"You have a meeting scheduled.\nMeeting Link: {meeting_link}\nDetails: {details.get('body', '')}"
         return send_email_real(sender_email, sender_password, to_email, subject, message) 

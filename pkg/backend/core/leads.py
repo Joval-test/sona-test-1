@@ -4,16 +4,17 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_core.documents import Document
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import smtplib
 import uuid
-from core.settings import get_private_link_config, load_and_set_decrypted_env
+# from core.settings import load_and_set_decrypted_env
 from logging_utils import stage_log
+import config
+from core.settings import setup_llm_and_embeddings
 
 # Ensure decrypted credentials are loaded into os.environ
-load_and_set_decrypted_env()
+# load_and_set_decrypted_env()
 
 MASTER_PATH = 'data/master_leads.xlsx'
 REPORT_PATH = 'data/report.xlsx'
@@ -61,8 +62,8 @@ def send_emails_to_leads(lead_ids):
         return {'success': False, 'error': f'Failed to read leads file: {str(e)}', 'results': []}
         
     results = []
-    sender_email = os.environ.get('EMAIL_SENDER', '')
-    sender_password = os.environ.get('EMAIL_PASSWORD', '')
+    sender_email = config.EMAIL_SENDER
+    sender_password = config.EMAIL_PASSWORD
     
     if not sender_email or not sender_password:
         return {'success': False, 'error': 'Email settings not configured', 'results': []}
@@ -71,28 +72,7 @@ def send_emails_to_leads(lead_ids):
     
     # Setup LLM, embeddings, and Chroma
     try:
-        azure_endpoint = os.environ.get('AZURE_ENDPOINT', '')
-        azure_deployment = os.environ.get('AZURE_DEPLOYMENT', '')
-        azure_api_version = os.environ.get('AZURE_API_VERSION', '')
-        azure_api_key = os.environ.get('AZURE_API_KEY', '')
-        azure_embedding_deployment = os.environ.get('AZURE_EMBEDDING_DEPLOYMENT', '')
-        
-        if not all([azure_endpoint, azure_deployment, azure_api_version, azure_api_key, azure_embedding_deployment]):
-            return {'success': False, 'error': 'Azure settings not configured', 'results': []}
-            
-        embeddings = AzureOpenAIEmbeddings(
-            azure_endpoint=azure_endpoint,
-            azure_deployment=azure_embedding_deployment,
-            openai_api_version=azure_api_version,
-            api_key=azure_api_key
-        )
-        llm = AzureChatOpenAI(
-            azure_endpoint=azure_endpoint,
-            azure_deployment=azure_deployment,
-            api_version=azure_api_version,
-            api_key=azure_api_key,
-            temperature=0.1
-        )
+        llm, embeddings = setup_llm_and_embeddings()
         company_collection = Chroma(
             collection_name="company_info_store",
             persist_directory=PERSIST_DIRECTORY,
@@ -341,9 +321,9 @@ def get_status_for_email(email):
 @stage_log(2)
 def generate_private_link(user_id):
     # Debug prints
-    print("PRIVATE_LINK_BASE from os.environ:", os.environ.get('PRIVATE_LINK_BASE'))
-    print("PRIVATE_LINK_PATH from os.environ:", os.environ.get('PRIVATE_LINK_PATH'))
+    print("PRIVATE_LINK_BASE from os.environ:", config.PRIVATE_LINK_BASE)
+    print("PRIVATE_LINK_PATH from os.environ:", config.PRIVATE_LINK_PATH)
     # print("Config from get_private_link_config:", config)
-    base =os.environ.get('PRIVATE_LINK_BASE')
-    path =os.environ.get('PRIVATE_LINK_PATH') 
+    base = config.PRIVATE_LINK_BASE
+    path = config.PRIVATE_LINK_PATH
     return f"{base}{path}{user_id}"

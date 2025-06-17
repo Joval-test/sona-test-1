@@ -72,7 +72,7 @@ const darkTheme = createTheme({
 /* ----------  MAIN COMPONENT  ---------- */
 function CompanyInfoSettings() {
   /* state */
-  const [pdfFiles, setPdfFiles] = useState([]);
+  const [companyFiles, setCompanyFiles] = useState([]);
   const [companyUrls, setCompanyUrls] = useState('');
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,55 +80,55 @@ function CompanyInfoSettings() {
   const { notification, showSuccess, showError, clearNotification } = useNotification();
   const fileInputRef = useRef(null);
 
+  /* Accept .pdf, .doc, .docx */
+  const ACCEPTED_EXTENSIONS = ['.pdf', '.doc', '.docx'];
+
+  const isAcceptedFile = (filename) => ACCEPTED_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext));
+
   /* file handlers */
   const handleSelect = (e) => {
-    const files = Array.from(e.target.files || []).filter((f) =>
-      f.name.toLowerCase().endsWith('.pdf')
-    );
-    setPdfFiles((prev) => [...prev, ...files]);
+    const files = Array.from(e.target.files || []).filter((f) => isAcceptedFile(f.name));
+    if (files.length !== (e.target.files || []).length) {
+      showError('Some files were rejected. Please upload only PDF, DOC, or DOCX files.');
+    }
+    setCompanyFiles((prev) => [...prev, ...files]);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    const files = Array.from(e.dataTransfer.files || []).filter((f) =>
-      f.name.toLowerCase().endsWith('.pdf')
-    );
-    if (files.length !== e.dataTransfer.files.length) {
-      showError('Some files were rejected. Please upload only PDF files.');
+    const files = Array.from(e.dataTransfer.files || []).filter((f) => isAcceptedFile(f.name));
+    if (files.length !== (e.dataTransfer.files || []).length) {
+      showError('Some files were rejected. Please upload only PDF, DOC, or DOCX files.');
     }
-    setPdfFiles((prev) => [...prev, ...files]);
+    setCompanyFiles((prev) => [...prev, ...files]);
   };
 
   const removeFile = (indexToRemove) => {
-    setPdfFiles(pdfFiles.filter((_, index) => index !== indexToRemove));
+    setCompanyFiles(companyFiles.filter((_, index) => index !== indexToRemove));
   };
 
   /* upload PDFs */
-  const uploadPdfs = async (event) => {
+  const uploadCompanyFiles = async (event) => {
     event.preventDefault();
-    if (!pdfFiles.length) {
+    if (!companyFiles.length) {
       showError('Please select files to upload');
       return;
     }
-
     setUploading(true);
     try {
       const formData = new FormData();
-      pdfFiles.forEach((file) => {
+      companyFiles.forEach((file) => {
         formData.append('files', file);
       });
-
       const res = await fetch('/api/upload/company-files', {
         method: 'POST',
         body: formData,
       });
-      
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Upload failed');
       }
-
       // Show success message with details
       const successCount = data.results?.filter(r => r.status === 'success').length || 0;
       const errorCount = data.results?.filter(r => r.status === 'error').length || 0;
@@ -137,12 +137,11 @@ function CompanyInfoSettings() {
         message += ` (${errorCount} file${errorCount !== 1 ? 's' : ''} failed)`;
       }
       showSuccess(message);
-      
       // Reset form
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      setPdfFiles([]);
+      setCompanyFiles([]);
     } catch (err) {
       console.error('Upload error:', err);
       showError(err.message || 'Upload failed. Please try again.');
@@ -196,16 +195,16 @@ function CompanyInfoSettings() {
     <ThemeProvider theme={darkTheme}>
       <Box sx={{ width: '100%', position: 'relative' }}>
         {/* PDF upload form */}
-        <Box component="form" onSubmit={uploadPdfs} sx={{ mb: 4 }}>
+        <Box component="form" onSubmit={uploadCompanyFiles} sx={{ mb: 4 }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Upload Company PDFs
+            Upload Company Files
           </Typography>
 
           {/* hidden input */}
           <Input
-            id="pdf-input"
+            id="company-file-input"
             type="file"
-            inputProps={{ accept: '.pdf', multiple: true }}
+            inputProps={{ accept: '.pdf,.doc,.docx', multiple: true }}
             sx={{ display: 'none' }}
             onChange={handleSelect}
             inputRef={fileInputRef}
@@ -219,7 +218,7 @@ function CompanyInfoSettings() {
             }}
             onDragLeave={() => setDragOver(false)}
             onDrop={handleDrop}
-            onClick={() => document.getElementById('pdf-input')?.click()}
+            onClick={() => document.getElementById('company-file-input')?.click()}
             sx={{
               border: `2px dashed ${
                 dragOver ? darkTheme.palette.primary.main : darkTheme.palette.text.secondary
@@ -238,19 +237,19 @@ function CompanyInfoSettings() {
             }}
           >
             <Typography variant="body1" sx={{ color: darkTheme.palette.text.secondary }}>
-              Drag and drop your PDF files here, or <strong>tap to upload</strong>
+              Drag and drop your PDF, DOC, or DOCX files here, or <strong>tap to upload</strong>
             </Typography>
-            <Typography variant="body2" sx={{ color: darkTheme.palette.text.secondary, mt: 1, fontSize: '0.875rem' }}>
-              Supported format: .pdf
+            <Typography variant="body2" sx={{ color: darkTheme.palette.text.secondary }}>
+              Supported formats: .pdf, .doc, .docx
             </Typography>
           </Box>
 
-          {pdfFiles.length > 0 && (
+          {companyFiles.length > 0 && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ color: darkTheme.palette.text.secondary, mb: 1 }}>
-                Selected Files ({pdfFiles.length}):
+                Selected Files ({companyFiles.length}):
               </Typography>
-              {pdfFiles.map((file, index) => (
+              {companyFiles.map((file, index) => (
                 <Box 
                   key={index} 
                   sx={{ 
@@ -290,7 +289,7 @@ function CompanyInfoSettings() {
             <Button
               type="submit"
               variant="contained"
-              disabled={uploading || !pdfFiles.length}
+              disabled={uploading || !companyFiles.length}
               startIcon={uploading ? <CircularProgress size={20} color="inherit" /> : null}
               sx={{
                 background: 'linear-gradient(to right, #ffffff, #3b82f6)',
@@ -308,7 +307,7 @@ function CompanyInfoSettings() {
                 },
               }}
             >
-              {uploading ? 'Uploading...' : 'Upload PDFs'}
+              {uploading ? 'Uploading...' : 'Upload Files'}
             </Button>
           </Box>
         </Box>
