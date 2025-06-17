@@ -51,3 +51,5 @@ dist/
 *.dist
 .env1
 node_modules/
+
+credentials.json
