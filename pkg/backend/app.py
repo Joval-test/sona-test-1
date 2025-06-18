@@ -609,6 +609,38 @@ if __name__ == "__main__":
             logger.error(f"Error reading index.html: {e}")
     else:
         logger.error("index.html not found!")
+    def ensure_config_exists():
+        """Ensure config.json exists with default values"""
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        
+        if not os.path.exists(config_path):
+            print("Creating config.json with default values...")
+            
+            default_config = {
+                "AZURE_OPENAI_ENDPOINT": "",
+                "AZURE_OPENAI_DEPLOYMENT_NAME": "",
+                "AZURE_OPENAI_EMBEDDING_DEPLOYMENT": "",
+                "AZURE_OPENAI_API_VERSION": "",
+                "AZURE_OPENAI_API_KEY": "",
+                "EMAIL_SENDER": "",
+                "EMAIL_PASSWORD": "",
+                "EMAIL_SMTP_SERVER": "smtp.gmail.com",
+                "EMAIL_SMTP_PORT": 587,
+                "PRIVATE_LINK_BASE": "",
+                "PRIVATE_LINK_PATH": "",
+                "DEFAULT_OWNER_NAME": "",
+                "DEFAULT_OWNER_EMAIL": ""
+            }
+            
+            with open(config_path, 'w') as f:
+                json.dump(default_config, f, indent=4)
+            
+            print("config.json created successfully!")
+        else:
+            print("config.json found.")
+
+    # Call this at the start of your app
+    ensure_config_exists()
     # logger.info("Static folder contents:")
     # if os.path.exists(app.static_folder):
     #     for root, dirs, files in os.walk(app.static_folder):

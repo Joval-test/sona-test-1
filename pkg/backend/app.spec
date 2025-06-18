@@ -34,6 +34,7 @@ all_datas += copy_metadata('safetensors')
 all_datas += [
     (frontend_path, 'frontend/build'),
     ('logging_utils.py', '.'),
+    ('config.py','.'),
     ('logo_transparent.png', '.'),
     *mpire_dashboard_templates,
     (resources_path, 'docling_parse/pdf_resources_v2'),
@@ -66,12 +67,15 @@ all_hiddenimports += [
     # PyTorch essentials
     'torch._C',
     'torch._utils_internal',
-
+    *collect_submodules('tiktoken'),
     # Langchain/ChromaDB
     *collect_submodules('langchain_chroma'),
     *collect_submodules('langchain_openai'),
     'chromadb.telemetry.product.posthog',
     'chromadb.api.rust',
+    'tiktoken',
+    'tiktoken_ext',
+    'tiktoken_ext.openai_public',
 ]
 
 a = Analysis(
@@ -106,7 +110,7 @@ exe = EXE(
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

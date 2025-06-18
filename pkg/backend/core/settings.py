@@ -6,7 +6,6 @@ import logging
 import smtplib
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 import config
-import importlib
 
 # Custom Exceptions
 class InvalidCredentialsError(Exception):
@@ -38,13 +37,14 @@ def validate_email_credentials(sender: str, password: str) -> None:
         raise InvalidCredentialsError(f"Failed to validate email credentials: {str(e)}")
 
 def save_email_settings(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Save email settings to config.py"""
+    """Save email settings to config.json"""
     try:
         # Validate credentials first
         validate_email_credentials(data["sender"], data["password"])
 
-        config.update_config('EMAIL_SENDER', data["sender"])
-        config.update_config('EMAIL_PASSWORD', data["password"])
+        # Use the batch update function for better performance
+        config.save_email_settings_to_config(data["sender"], data["password"])
+        
         logger.info("Email settings saved successfully")
         return {"success": True, "message": "Email settings saved successfully"}
     except Exception as e:
@@ -79,7 +79,7 @@ def validate_azure_credentials(endpoint: str, api_key: str, api_version: str, de
         raise InvalidCredentialsError(f"Invalid Azure credentials: {str(e)}")
 
 def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Save Azure settings to config.py"""
+    """Save Azure settings to config.json"""
     try:
         # Validate credentials first
         validate_azure_credentials(
@@ -90,11 +90,15 @@ def save_azure_settings(data: Dict[str, Any]) -> Dict[str, Any]:
             data["embedding_deployment"]
         )
 
-        config.update_config('AZURE_OPENAI_ENDPOINT', data["endpoint"])
-        config.update_config('AZURE_OPENAI_API_KEY', data["api_key"])
-        config.update_config('AZURE_OPENAI_API_VERSION', data["api_version"])
-        config.update_config('AZURE_OPENAI_DEPLOYMENT_NAME', data["deployment"])
-        config.update_config('AZURE_OPENAI_EMBEDDING_DEPLOYMENT', data["embedding_deployment"])
+        # Use the batch update function for better performance
+        config.save_azure_settings_to_config(
+            data["endpoint"],
+            data["api_key"],
+            data["api_version"],
+            data["deployment"],
+            data["embedding_deployment"]
+        )
+        
         logger.info("Azure settings saved successfully")
         return {"success": True, "message": "Azure settings saved successfully"}
     except Exception as e:
@@ -127,7 +131,7 @@ def clear_all_data() -> Dict[str, Any]:
 def get_private_link_config() -> Dict[str, Any]:
     """Get private link configuration (base and path only)"""
     try:
-        importlib.reload(config)
+        # No need for importlib.reload with JSON config - values are always fresh
         config_data = {
             "base": config.PRIVATE_LINK_BASE,
             "path": config.PRIVATE_LINK_PATH,
@@ -138,10 +142,13 @@ def get_private_link_config() -> Dict[str, Any]:
         raise ConfigurationError(f"Error getting private link configuration: {str(e)}")
 
 def save_private_link_config(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Save private link configuration (base and path only) to config.py"""
+    """Save private link configuration (base and path only) to config.json"""
     try:
-        config.update_config('PRIVATE_LINK_BASE', data.get("base", ""))
-        config.update_config('PRIVATE_LINK_PATH', data.get("path", ""))
+        # Use the batch update function for better performance
+        config.save_private_link_settings_to_config(
+            data.get("base", ""),
+            data.get("path", "")
+        )
         
         logger.info("Private link settings saved successfully")
         return {"success": True, "message": "Private link settings saved successfully"}
@@ -149,12 +156,42 @@ def save_private_link_config(data: Dict[str, Any]) -> Dict[str, Any]:
         logger.error(f"Error saving private link settings: {str(e)}")
         raise ConfigurationError(f"Error saving private link settings: {str(e)}")
 
+def save_owner_settings(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Save default owner settings to config.json"""
+    try:
+        config.save_owner_settings_to_config(
+            data.get("name", ""),
+            data.get("email", "")
+        )
+        
+        logger.info("Owner settings saved successfully")
+        return {"success": True, "message": "Owner settings saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving owner settings: {str(e)}")
+        raise ConfigurationError(f"Error saving owner settings: {str(e)}")
+
+def get_all_config() -> Dict[str, Any]:
+    """Get all configuration values"""
+    try:
+        all_config = config._config_manager.get_all_config()
+        # Mask sensitive information in logs
+        safe_config = all_config.copy()
+        if safe_config.get("AZURE_OPENAI_API_KEY"):
+            safe_config["AZURE_OPENAI_API_KEY"] = "*" * len(safe_config["AZURE_OPENAI_API_KEY"])
+        if safe_config.get("EMAIL_PASSWORD"):
+            safe_config["EMAIL_PASSWORD"] = "*" * len(safe_config["EMAIL_PASSWORD"])
+        
+        return {"success": True, "config": all_config}
+    except Exception as e:
+        logger.error(f"Error getting configuration: {str(e)}")
+        raise ConfigurationError(f"Error getting configuration: {str(e)}")
+
 @stage_log(3)
 def get_report_path():
     return os.path.join(DATA_DIR, 'report.xlsx')
 
 def setup_llm_and_embeddings():
-    importlib.reload(config)
+    # No need for importlib.reload with JSON config - values are always fresh
     azure_endpoint = config.AZURE_OPENAI_ENDPOINT
     azure_deployment = config.AZURE_OPENAI_DEPLOYMENT_NAME
     azure_api_version = config.AZURE_OPENAI_API_VERSION
