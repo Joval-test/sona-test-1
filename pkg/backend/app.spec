@@ -1,7 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 import os
-resources_path = os.path.join('..','..','.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
+import docling_parse
+resources_path = os.path.join(os.path.dirname(docling_parse.__file__), 'pdf_resources_v2')
+
 
 # Get icon path
 icon_path = os.path.abspath(os.path.join(SPECPATH, 'app_icon.ico'))
