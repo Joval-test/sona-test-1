@@ -1,0 +1,12 @@
+Flask
+flask-cors
+langchain
+langchain-docling
+langchain-core
+langchain-chroma
+langchain-openai
+python-dotenv
+pandas
+beautifulsoup4
+requests
+openpyxl 

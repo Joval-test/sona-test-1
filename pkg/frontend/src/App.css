@@ -1,0 +1,193 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+  background: #232c3a;
+  color: #f7f9fb;
+}
+
+.main-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #232c3a;
+}
+
+.top-logo-bar, .product-logo-top { display: none; }
+
+.app-header {
+  display: flex;
+  align-items: center;
+  background: #f7f9fb;
+  color: #232c3a;
+  padding: 0.5rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  z-index: 10;
+  justify-content: flex-start;
+  gap: 1.2rem;
+}
+.header-logo {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+  margin-right: 1rem;
+  filter: drop-shadow(0 2px 12px rgba(26,77,143,0.10));
+}
+.main-nav {
+  display: flex;
+  gap: 1.5rem;
+}
+.main-nav a {
+  color: #fff;
+  background: #34425a;
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: color 0.2s, background 0.2s;
+  padding: 0.3rem 1rem;
+  border-radius: 6px;
+  border: none;
+}
+.main-nav a:hover, .main-nav a:focus {
+  color: #fff;
+  background: #B32C39;
+  outline: none;
+  border: none;
+}
+
+.main-content {
+  flex: 1;
+  padding: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #232c3a;
+  color: #f7f9fb;
+}
+
+.app-footer {
+  margin-top: auto;
+  background: #232c3a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0 1rem 0;
+  border-top: 1px solid #2a3544;
+}
+.caze-logo-footer {
+  height: 48px;
+  opacity: 0.92;
+}
+
+/* Hero/Landing styles */
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  background: linear-gradient(120deg, #232c3a 0%, #34425a 100%);
+  color: #f7f9fb;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(26,77,143,0.10);
+}
+.landing-hero h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  letter-spacing: 2px;
+  color: #fff;
+}
+.landing-hero p {
+  font-size: 1.4rem;
+  max-width: 600px;
+  margin-bottom: 2rem;
+  opacity: 0.98;
+  color: #f7f9fb;
+}
+.landing-hero .cta-btn {
+  background: #B32C39;
+  color: #232c3a;
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 0.8rem 2.2rem;
+  border: none;
+  border-radius: 2rem;
+  box-shadow: 0 2px 8px rgba(26,77,143,0.10);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.landing-hero .cta-btn:hover, .landing-hero .cta-btn:focus {
+  background: #fff;
+  color: #B32C39;
+  outline: none;
+}
+
+input, textarea, select, button {
+  font-family: inherit;
+  font-size: 1rem;
+}
+input, textarea, select {
+  background: #34425a;
+  color: #f7f9fb;
+  border: 1px solid #bfc7d1;
+  border-radius: 6px;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: #B32C39;
+  outline: none;
+  background: #232c3a;
+}
+button, .primary-btn {
+  background: #34425a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.7rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  margin-bottom: 0.5rem;
+}
+.card {
+  boxShadow: "0 3px 8px rgba(33, 150, 243, 0.3)"  /* Changed from rgba(255, 99, 71, 0.3) */
+}
+
+/* Update button hover states */
+button:hover, button:focus, .primary-btn:hover, .primary-btn:focus {
+  background: #2196F3;  /* Light blue instead of #B32C39 */
+  color: #fff;
+  outline: none;
+}
+
+/* Update accent colors */
+.leads-box {
+  border: 2px solid #2196F3;  /* Changed from #B32C39 */
+  box-shadow: 0 4px 24px rgba(33, 150, 243, 0.08);  /* Changed from rgba(179,44,57,0.08) */
+}
+.leads-box {
+  background: #353f4e;
+  border: 2px solid #B32C39;
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(179,44,57,0.08), 0 1.5px 6px rgba(52,66,90,0.10);
+  padding: 20px;
+  margin-bottom: 40px;
+}
+
+.leads-table-row {
+  background: #2d3642;
+}
+.leads-table-row:hover {
+  background: #353f4e;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    padding: 0;
+  }
+}

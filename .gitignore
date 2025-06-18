@@ -1,0 +1,53 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Node modules
+node_modules/
+
+# SQLite database
+db.sqlite3
+
+# Chroma storage
+chroma_storage/
+
+# Binary files
+*.bin
+
+# Excel files
+*.xlsx
+
+# Jupyter notebooks
+*.ipynb
+
+# Environment files
+*.env
+
+# Configuration files
+*.toml
+
+# Virtual environment files
+.venv/
+venv/
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# Data files
+data/
+
+# Build files
+build/
+dist/
+
+# IDE files
+.idea/
+.vscode/
+
+*.build
+*.dist
+.env1
+node_modules/
