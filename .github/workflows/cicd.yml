@@ -50,5 +50,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CazeBizConAI
-          path: pkg/backend/dist/app.exe
+          path: pkg/backend/dist/Caze BizConAI/Caze BizConAI.exe
 
