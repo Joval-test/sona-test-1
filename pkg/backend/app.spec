@@ -69,7 +69,7 @@ exe = EXE(
     pyz,
     a.scripts,
     [],
-    exclude_binaries=True,
+    exclude_binaries=False,
     name='Caze BizConAI',
     debug=False,
     bootloader_ignore_signals=False,
