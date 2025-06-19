@@ -41,51 +41,8 @@ jobs:
           python -m venv .venv
           .\.venv\Scripts\python.exe -m pip install --upgrade pip
           .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-
       - name: Install PyInstaller Globally
         run: pip install pyinstaller
-
-      - name: Patch Spec File to Handle Missing Metadata
-        working-directory: pkg/backend
-        run: |
-          $content = Get-Content app.spec
-          $content = $content -replace "all_datas \+= copy_metadata\('torch'\)", @"
-try:
-    all_datas += copy_metadata('torch')
-except Exception as e:
-    print(f"Skipping metadata for torch: {e}")
-"@
-          $content = $content -replace "all_datas \+= copy_metadata\('torchvision'\)", @"
-try:
-    all_datas += copy_metadata('torchvision')
-except Exception as e:
-    print(f"Skipping metadata for torchvision: {e}")
-"@
-          $content = $content -replace "all_datas \+= copy_metadata\('easyocr'\)", @"
-try:
-    all_datas += copy_metadata('easyocr')
-except Exception as e:
-    print(f"Skipping metadata for easyocr: {e}")
-"@
-          $content = $content -replace "all_datas \+= copy_metadata\('transformers'\)", @"
-try:
-    all_datas += copy_metadata('transformers')
-except Exception as e:
-    print(f"Skipping metadata for transformers: {e}")
-"@
-          $content = $content -replace "all_datas \+= copy_metadata\('huggingface-hub'\)", @"
-try:
-    all_datas += copy_metadata('huggingface-hub')
-except Exception as e:
-    print(f"Skipping metadata for huggingface-hub: {e}")
-"@
-          $content = $content -replace "all_datas \+= copy_metadata\('safetensors'\)", @"
-try:
-    all_datas += copy_metadata('safetensors')
-except Exception as e:
-    print(f"Skipping metadata for safetensors: {e}")
-"@
-          Set-Content -Path app.spec -Value $content
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
