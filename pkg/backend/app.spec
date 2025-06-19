@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all, copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, collect_all
 
 block_cipher = None
 
 # Paths
-resources_path = os.path.join('..','..', '.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
+resources_path = os.path.join('..', '..', '.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
 icon_path = os.path.abspath(os.path.join(SPECPATH, 'app_icon.ico'))
 frontend_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'build'))
 
@@ -25,16 +25,10 @@ all_datas = []
 all_datas += filter_py_files(docling_data[0])
 all_datas += filter_py_files(easyocr_data[0])
 all_datas += filter_py_files(torch_data[0])
-all_datas += copy_metadata('torch')
-all_datas += copy_metadata('torchvision')
-all_datas += copy_metadata('easyocr')
-all_datas += copy_metadata('transformers')
-all_datas += copy_metadata('huggingface-hub')
-all_datas += copy_metadata('safetensors')
 all_datas += [
     (frontend_path, 'frontend/build'),
     ('logging_utils.py', '.'),
-    ('config.py','.'),
+    ('config.py', '.'),
     ('logo_transparent.png', '.'),
     *mpire_dashboard_templates,
     (resources_path, 'docling_parse/pdf_resources_v2'),
@@ -99,17 +93,13 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=False,
     name='Caze BizConAI',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -117,4 +107,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=icon_path,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='Caze BizConAI',
 )
