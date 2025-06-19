@@ -42,8 +42,6 @@ jobs:
           .\.venv\Scripts\activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install poetry pyinstaller
-          poetry init --no-interaction
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
