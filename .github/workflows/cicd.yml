@@ -48,12 +48,44 @@ jobs:
       - name: Patch Spec File to Handle Missing Metadata
         working-directory: pkg/backend
         run: |
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''torch''\)', 'try:\n    all_datas += copy_metadata(''torch'')\nexcept Exception as e:\n    print(f\"Skipping metadata for torch: {e}\")' | Set-Content app.spec
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''torchvision''\)', 'try:\n    all_datas += copy_metadata(''torchvision'')\nexcept Exception as e:\n    print(f\"Skipping metadata for torchvision: {e}\")' | Set-Content app.spec
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''easyocr''\)', 'try:\n    all_datas += copy_metadata(''easyocr'')\nexcept Exception as e:\n    print(f\"Skipping metadata for easyocr: {e}\")' | Set-Content app.spec
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''transformers''\)', 'try:\n    all_datas += copy_metadata(''transformers'')\nexcept Exception as e:\n    print(f\"Skipping metadata for transformers: {e}\")' | Set-Content app.spec
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''huggingface-hub''\)', 'try:\n    all_datas += copy_metadata(''huggingface-hub'')\nexcept Exception as e:\n    print(f\"Skipping metadata for huggingface-hub: {e}\")' | Set-Content app.spec
-          (Get-Content app.spec) -replace 'all_datas \+= copy_metadata\(''safetensors''\)', 'try:\n    all_datas += copy_metadata(''safetensors'')\nexcept Exception as e:\n    print(f\"Skipping metadata for safetensors: {e}\")' | Set-Content app.spec
+          $content = Get-Content app.spec
+          $content = $content -replace "all_datas \+= copy_metadata\('torch'\)", @"
+try:
+    all_datas += copy_metadata('torch')
+except Exception as e:
+    print(f"Skipping metadata for torch: {e}")
+"@
+          $content = $content -replace "all_datas \+= copy_metadata\('torchvision'\)", @"
+try:
+    all_datas += copy_metadata('torchvision')
+except Exception as e:
+    print(f"Skipping metadata for torchvision: {e}")
+"@
+          $content = $content -replace "all_datas \+= copy_metadata\('easyocr'\)", @"
+try:
+    all_datas += copy_metadata('easyocr')
+except Exception as e:
+    print(f"Skipping metadata for easyocr: {e}")
+"@
+          $content = $content -replace "all_datas \+= copy_metadata\('transformers'\)", @"
+try:
+    all_datas += copy_metadata('transformers')
+except Exception as e:
+    print(f"Skipping metadata for transformers: {e}")
+"@
+          $content = $content -replace "all_datas \+= copy_metadata\('huggingface-hub'\)", @"
+try:
+    all_datas += copy_metadata('huggingface-hub')
+except Exception as e:
+    print(f"Skipping metadata for huggingface-hub: {e}")
+"@
+          $content = $content -replace "all_datas \+= copy_metadata\('safetensors'\)", @"
+try:
+    all_datas += copy_metadata('safetensors')
+except Exception as e:
+    print(f"Skipping metadata for safetensors: {e}")
+"@
+          Set-Content -Path app.spec -Value $content
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
