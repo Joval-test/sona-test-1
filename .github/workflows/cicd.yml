@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
   # push:
   #   branches:
-  #     - main  # Run on push to main
+  #     - main
   release:
-    types: [published]  # Run on published releases
+    types: [published]
 
 jobs:
   build:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest  # Required to create .exe
+    runs-on: windows-latest
 
     steps:
       - name: Checkout repository
@@ -39,14 +39,13 @@ jobs:
         working-directory: pkg/backend
         run: |
           python -m venv .venv
-          .\.venv\Scripts\activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          .\.venv\Scripts\python.exe -m pip install pyinstaller
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
-        run: pyinstaller --clean --log-level DEBUG app.spec
+        run: .\.venv\Scripts\python.exe -m pyinstaller --clean --log-level DEBUG app.spec
 
       - name: Upload built executable
         uses: actions/upload-artifact@v4
