@@ -2,9 +2,9 @@ name: BizCon CI/CD Pipeline with Newman
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main  # Run on push to main
+  # push:
+  #   branches:
+  #     - main  # Run on push to main
   release:
     types: [published]  # Run on published releases
 
