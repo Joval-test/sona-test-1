@@ -18,7 +18,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build Docker Image
-        run: docker build -t bizcon-ai:latest .
+        run: docker build --no-cache -t bizcon-ai:latest .
 
       - name: Save Docker Image as Artifact
         run: docker save -o bizcon-ai.tar bizcon-ai:latest
