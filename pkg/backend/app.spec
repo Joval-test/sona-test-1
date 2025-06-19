@@ -5,7 +5,9 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules, coll
 block_cipher = None
 
 # Paths
-resources_path = os.path.join('..', '..', '.venv', 'Lib', 'site-packages', 'docling_parse', 'pdf_resources_v2')
+site_packages_path = site.getsitepackages()[0]
+resources_path = os.path.join(site_packages_path, 'docling_parse', 'pdf_resources_v2')
+
 icon_path = os.path.abspath(os.path.join(SPECPATH, 'app_icon.ico'))
 frontend_path = os.path.abspath(os.path.join(SPECPATH, '..', 'frontend', 'build'))
 
