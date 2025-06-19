@@ -42,11 +42,11 @@ jobs:
           .\.venv\Scripts\activate
           pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pyinstaller
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
-        run: |
-          .\.venv\Scripts\pyinstaller.exe --clean --log-level DEBUG app.spec
+        run: .\.venv\Scripts\python.exe -m pyinstaller --clean --log-level DEBUG app.spec
 
       - name: Upload built executable
         uses: actions/upload-artifact@v4
