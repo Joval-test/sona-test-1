@@ -46,7 +46,7 @@ jobs:
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
-        run: .\.venv\Scripts\python.exe -m pyinstaller --clean --log-level DEBUG app.spec
+        run: pyinstaller --clean --log-level DEBUG app.spec
 
       - name: Upload built executable
         uses: actions/upload-artifact@v4
