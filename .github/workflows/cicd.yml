@@ -1,0 +1,54 @@
+name: BizCon CI/CD Pipeline with Newman
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main  # Run on push to main
+  release:
+    types: [published]  # Run on published releases
+
+jobs:
+  build:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest  # Required to create .exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js for frontend
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies
+        working-directory: pkg/frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: pkg/frontend
+        run: npm run build
+
+      - name: Setup Python for backend
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install backend dependencies
+        working-directory: pkg/backend
+        run: pip install -r requirements.txt
+
+      - name: Install PyInstaller
+        run: pip install pyinstaller
+
+      - name: Package the backend as .exe
+        working-directory: pkg/backend
+        run: pyinstaller --clean --log-level DEBUG app.spec
+
+      - name: Upload built executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: CazeBizConAI
+          path: pkg/backend/dist/Caze BizConAI/Caze BizConAI.exe
+

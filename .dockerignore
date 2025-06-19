@@ -1,0 +1,25 @@
+# Ignore Git files
+.git
+.gitignore
+
+# Ignore Node modules (very heavy)
+node_modules
+
+# Ignore Python cache
+__pycache__/
+
+# Ignore build artifacts (already copied via multi-stage build)
+pkg/frontend/node_modules
+
+# Ignore OS files
+.DS_Store
+
+# Ignore log files
+*.log
+
+# Ignore local environment files
+.env
+
+# Ignore test files (if not needed in production)
+tests
+test
