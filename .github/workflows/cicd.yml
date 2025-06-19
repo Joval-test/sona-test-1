@@ -30,25 +30,29 @@ jobs:
         working-directory: pkg/frontend
         run: npm run build
 
-      - name: Setup Python for backend
+      - name: Setup Python 3.12 for backend
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Install backend dependencies
+      - name: Create Virtual Environment and Install Dependencies
         working-directory: pkg/backend
-        run: pip install -r requirements.txt
-
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install poetry pyinstaller
+          poetry init --no-interaction
 
       - name: Package the backend as .exe
         working-directory: pkg/backend
-        run: pyinstaller --clean --log-level DEBUG app.spec
+        run: |
+          .\.venv\Scripts\activate
+          pyinstaller --clean --log-level DEBUG app.spec
 
       - name: Upload built executable
         uses: actions/upload-artifact@v4
         with:
           name: CazeBizConAI
           path: pkg/backend/dist/Caze BizConAI/Caze BizConAI.exe
-
