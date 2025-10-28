@@ -1,11 +1,13 @@
-# Workflow for Release Repository
-# File: .github/workflows/propagate-issue.yml
 name: Propagate Issue to Submodules
 on:
   issues:
-    types: [labeled]
+    types: [labeled, closed, reopened]
+  issue_comment:
+    types: [created]
+
 jobs:
   create-submodule-issue:
+    if: github.event_name == 'issues' && github.event.action == 'labeled'
     runs-on: ubuntu-latest
     steps:
       - name: Check if label matches a repository
@@ -14,12 +16,15 @@ jobs:
           LABEL="${{ github.event.label.name }}"
           
           # Define direct submodules (top-level)
-          DIRECT_REPOS=("docling-api"  "Inverted-Search-DS-project")
+          DIRECT_REPOS=("ai" "backend" "interview-release" "email-handler-release")
           
           # Define nested submodules with their parent repositories
           # Format: "nested-repo:parent-repo"
           declare -A NESTED_MAP=(
-            ["Car-Blackbox"]="docling-api"
+            ["interview-core"]="interview-release"
+            ["interview-ui"]="interview-release"
+            ["email-sender"]="email-handler-release"
+            ["email-templates"]="email-handler-release"
           )
           
           # Check if label matches any direct repo
@@ -79,7 +84,9 @@ jobs:
             ---
             *This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
             **Linked Release Issue: #${originalIssue.number}**
-            ${isNested ? `**Repository Path: ${displayPath}**` : ''}`;
+            ${isNested ? `**Repository Path: ${displayPath}**` : ''}
+            
+            <!-- RELEASE_SYNC: ${context.repo.repo}:${originalIssue.number} -->`;
             
             try {
               const response = await github.rest.issues.create({
@@ -112,4 +119,162 @@ jobs:
                 issue_number: originalIssue.number,
                 body: `❌ Failed to create issue in ${displayPath}. Error: ${error.message}\n\nPlease check the workflow logs for more details.`
               });
+            }
+
+  sync-submodule-status:
+    if: github.event_name == 'issues' && (github.event.action == 'closed' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_REPO_NAME: 'main-release'  # ← EDIT THIS: Change to your actual release repo name
+    steps:
+      - name: Check for linked release issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SUBMODULE_PAT }}
+          script: |
+            const issue = context.payload.issue;
+            const action = context.payload.action;
+            const expectedReleaseRepo = process.env.RELEASE_REPO_NAME;
+            
+            // Extract release repo and issue number from the issue body
+            const syncMatch = issue.body?.match(/<!-- RELEASE_SYNC: (.+?):(\d+) -->/);
+            
+            if (!syncMatch) {
+              console.log('No linked release issue found in this submodule issue');
+              return;
+            }
+            
+            const releaseRepo = syncMatch[1];
+            const releaseIssueNumber = parseInt(syncMatch[2]);
+            const owner = context.repo.owner;
+            
+            // Verify this is from the expected release repo
+            if (releaseRepo !== expectedReleaseRepo) {
+              console.log(`Skipping: Issue linked to ${releaseRepo}, but expected ${expectedReleaseRepo}`);
+              return;
+            }
+            
+            console.log(`Found linked release issue: ${releaseRepo}#${releaseIssueNumber}`);
+            
+            try {
+              // Get the release issue to check its current state
+              const releaseIssue = await github.rest.issues.get({
+                owner: owner,
+                repo: releaseRepo,
+                issue_number: releaseIssueNumber
+              });
+              
+              // Get all comments to find sync trackers
+              const comments = await github.rest.issues.listComments({
+                owner: owner,
+                repo: releaseRepo,
+                issue_number: releaseIssueNumber
+              });
+              
+              // Extract all linked submodule issues from comments
+              const linkedIssues = [];
+              for (const comment of comments.data) {
+                const match = comment.body?.match(/<!-- SYNC_TRACKER: (.+?):(\d+):/g);
+                if (match) {
+                  match.forEach(m => {
+                    const parts = m.match(/<!-- SYNC_TRACKER: (.+?):(\d+):/);
+                    if (parts) {
+                      linkedIssues.push({
+                        repo: parts[1],
+                        number: parseInt(parts[2])
+                      });
+                    }
+                  });
+                }
+              }
+              
+              console.log(`Found ${linkedIssues.length} linked submodule issues`);
+              
+              // Check the status of all linked submodule issues
+              const issueStatuses = await Promise.all(
+                linkedIssues.map(async (linkedIssue) => {
+                  try {
+                    const subIssue = await github.rest.issues.get({
+                      owner: owner,
+                      repo: linkedIssue.repo,
+                      issue_number: linkedIssue.number
+                    });
+                    return {
+                      repo: linkedIssue.repo,
+                      number: linkedIssue.number,
+                      state: subIssue.data.state,
+                      url: subIssue.data.html_url
+                    };
+                  } catch (error) {
+                    console.error(`Failed to fetch ${linkedIssue.repo}#${linkedIssue.number}:`, error);
+                    return null;
+                  }
+                })
+              );
+              
+              const validStatuses = issueStatuses.filter(s => s !== null);
+              const allClosed = validStatuses.every(s => s.state === 'closed');
+              const closedCount = validStatuses.filter(s => s.state === 'closed').length;
+              const totalCount = validStatuses.length;
+              
+              // If the current submodule issue was closed
+              if (action === 'closed') {
+                // Add comment to release issue
+                await github.rest.issues.createComment({
+                  owner: owner,
+                  repo: releaseRepo,
+                  issue_number: releaseIssueNumber,
+                  body: `🔒 Submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was closed. (${closedCount}/${totalCount} closed)`
+                });
+                
+                // If all linked submodule issues are now closed, close the release issue
+                if (allClosed && releaseIssue.data.state === 'open') {
+                  await github.rest.issues.update({
+                    owner: owner,
+                    repo: releaseRepo,
+                    issue_number: releaseIssueNumber,
+                    state: 'closed'
+                  });
+                  
+                  await github.rest.issues.createComment({
+                    owner: owner,
+                    repo: releaseRepo,
+                    issue_number: releaseIssueNumber,
+                    body: '✅ All linked submodule issues are closed. Automatically closing this release issue.'
+                  });
+                  
+                  console.log('All submodule issues closed - closed release issue');
+                }
+              } 
+              // If the current submodule issue was reopened
+              else if (action === 'reopened') {
+                // If the release issue is closed, reopen it
+                if (releaseIssue.data.state === 'closed') {
+                  await github.rest.issues.update({
+                    owner: owner,
+                    repo: releaseRepo,
+                    issue_number: releaseIssueNumber,
+                    state: 'open'
+                  });
+                  
+                  await github.rest.issues.createComment({
+                    owner: owner,
+                    repo: releaseRepo,
+                    issue_number: releaseIssueNumber,
+                    body: `⚠️ Automatically reopened because linked submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was reopened.`
+                  });
+                  
+                  console.log(`Reopened release issue ${releaseRepo}#${releaseIssueNumber} because ${context.repo.repo}#${issue.number} was reopened`);
+                } else {
+                  await github.rest.issues.createComment({
+                    owner: owner,
+                    repo: releaseRepo,
+                    issue_number: releaseIssueNumber,
+                    body: `🔓 Submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was reopened.`
+                  });
+                }
+              }
+              
+            } catch (error) {
+              console.error('Failed to sync status:', error);
             }
