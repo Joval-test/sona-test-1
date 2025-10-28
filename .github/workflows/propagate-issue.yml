@@ -12,19 +12,48 @@ jobs:
         id: check-label
         run: |
           LABEL="${{ github.event.label.name }}"
-          VALID_REPOS=("docling-api" "Inverted-Search-DS-project")
           
-          # Check if label matches any valid repo
+          # Define direct submodules (top-level)
+          DIRECT_REPOS=("docling-api"  "Inverted-Search-DS-project")
+          
+          # Define nested submodules with their parent repositories
+          # Format: "nested-repo:parent-repo"
+          declare -A NESTED_MAP=(
+            ["Car-Blackbox"]="docling-api"
+          )
+          
+          # Check if label matches any direct repo
           MATCHED=false
-          for repo in "${VALID_REPOS[@]}"; do
+          TARGET_REPO=""
+          PARENT_REPO=""
+          IS_NESTED=false
+          
+          for repo in "${DIRECT_REPOS[@]}"; do
             if [[ "$LABEL" == "$repo" ]]; then
               MATCHED=true
+              TARGET_REPO="$repo"
               break
             fi
           done
           
+          # Check if label matches any nested repo
+          if [[ "$MATCHED" == "false" ]]; then
+            for nested_repo in "${!NESTED_MAP[@]}"; do
+              if [[ "$LABEL" == "$nested_repo" ]]; then
+                MATCHED=true
+                TARGET_REPO="$nested_repo"
+                PARENT_REPO="${NESTED_MAP[$nested_repo]}"
+                IS_NESTED=true
+                break
+              fi
+            done
+          fi
+          
           echo "matched=$MATCHED" >> $GITHUB_OUTPUT
-          echo "target_repo=$LABEL" >> $GITHUB_OUTPUT
+          echo "target_repo=$TARGET_REPO" >> $GITHUB_OUTPUT
+          echo "parent_repo=$PARENT_REPO" >> $GITHUB_OUTPUT
+          echo "is_nested=$IS_NESTED" >> $GITHUB_OUTPUT
+      
       - name: Create issue in target repository
         if: steps.check-label.outputs.matched == 'true'
         uses: actions/github-script@v7
@@ -32,15 +61,25 @@ jobs:
           github-token: ${{ secrets.SUBMODULE_PAT }}
           script: |
             const targetRepo = '${{ steps.check-label.outputs.target_repo }}';
+            const parentRepo = '${{ steps.check-label.outputs.parent_repo }}';
+            const isNested = '${{ steps.check-label.outputs.is_nested }}' === 'true';
             const owner = context.repo.owner;
             const originalIssue = context.payload.issue;
+            
+            // Determine the display path
+            let displayPath = targetRepo;
+            
+            if (isNested && parentRepo) {
+              displayPath = `${parentRepo}/${targetRepo}`;
+            }
             
             // Construct the issue body with reference to original issue
             const issueBody = `${originalIssue.body || 'No description provided'}
             
             ---
             *This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
-            **Linked Release Issue: #${originalIssue.number}**`;
+            **Linked Release Issue: #${originalIssue.number}**
+            ${isNested ? `**Repository Path: ${displayPath}**` : ''}`;
             
             try {
               const response = await github.rest.issues.create({
@@ -58,19 +97,19 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: originalIssue.number,
-                body: `✅ Issue created in [${targetRepo}#${response.data.number}](${response.data.html_url})
+                body: `✅ Issue created in [${displayPath}#${response.data.number}](${response.data.html_url})
                 
-            <!-- SYNC_TRACKER: ${targetRepo}:${response.data.number} -->`
+            <!-- SYNC_TRACKER: ${targetRepo}:${response.data.number}:${parentRepo || 'direct'} -->`
               });
               
-              console.log(`Successfully created issue in ${targetRepo}`);
+              console.log(`Successfully created issue in ${displayPath}`);
             } catch (error) {
-              console.error(`Failed to create issue in ${targetRepo}:`, error);
+              console.error(`Failed to create issue in ${displayPath}:`, error);
               
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: originalIssue.number,
-                body: `❌ Failed to create issue in ${targetRepo}. Please check the workflow logs.`
+                body: `❌ Failed to create issue in ${displayPath}. Error: ${error.message}\n\nPlease check the workflow logs for more details.`
               });
             }
