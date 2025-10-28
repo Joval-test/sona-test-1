@@ -1,12 +1,9 @@
 # Workflow for Release Repository
 # File: .github/workflows/propagate-issue.yml
-
 name: Propagate Issue to Submodules
-
 on:
   issues:
     types: [labeled]
-
 jobs:
   create-submodule-issue:
     runs-on: ubuntu-latest
@@ -28,7 +25,6 @@ jobs:
           
           echo "matched=$MATCHED" >> $GITHUB_OUTPUT
           echo "target_repo=$LABEL" >> $GITHUB_OUTPUT
-
       - name: Create issue in target repository
         if: steps.check-label.outputs.matched == 'true'
         uses: actions/github-script@v7
@@ -42,11 +38,9 @@ jobs:
             // Construct the issue body with reference to original issue
             const issueBody = `${originalIssue.body || 'No description provided'}
             
----
-
-*This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
-
-**Linked Release Issue: #${originalIssue.number}**`;
+            ---
+            *This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
+            **Linked Release Issue: #${originalIssue.number}**`;
             
             try {
               const response = await github.rest.issues.create({
@@ -66,7 +60,7 @@ jobs:
                 issue_number: originalIssue.number,
                 body: `✅ Issue created in [${targetRepo}#${response.data.number}](${response.data.html_url})
                 
-<!-- SYNC_TRACKER: ${targetRepo}:${response.data.number} -->`
+            <!-- SYNC_TRACKER: ${targetRepo}:${response.data.number} -->`
               });
               
               console.log(`Successfully created issue in ${targetRepo}`);
