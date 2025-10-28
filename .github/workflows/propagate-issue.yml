@@ -15,7 +15,7 @@ jobs:
         id: check-label
         run: |
           LABEL="${{ github.event.label.name }}"
-          VALID_REPOS=("backend" "ai" "email-handler" "interview" "interview-ui")
+          VALID_REPOS=("docling-api" "Inverted-Search-DS-project")
           
           # Check if label matches any valid repo
           MATCHED=false
