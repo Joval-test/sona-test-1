@@ -1,0 +1,78 @@
+name: Propagate Issue to Submodules
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  create-submodule-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if label matches a repository
+        id: check-label
+        run: |
+          LABEL="${{ github.event.label.name }}"
+          VALID_REPOS=("docling-api" "Inverted-Search-DS-project")
+          
+          # Check if label matches any valid repo
+          MATCHED=false
+          for repo in "${VALID_REPOS[@]}"; do
+            if [[ "$LABEL" == "$repo" ]]; then
+              MATCHED=true
+              break
+            fi
+          done
+          
+          echo "matched=$MATCHED" >> $GITHUB_OUTPUT
+          echo "target_repo=$LABEL" >> $GITHUB_OUTPUT
+
+      - name: Create issue in target repository
+        if: steps.check-label.outputs.matched == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SUBMODULE_PAT }}
+          script: |
+            const targetRepo = '${{ steps.check-label.outputs.target_repo }}';
+            const owner = context.repo.owner; // Change this if repos are in different org
+            const originalIssue = context.payload.issue;
+            
+            // Construct the issue body with reference to original issue
+            const issueBody = `
+            ${originalIssue.body || 'No description provided'}
+            
+            ---
+            
+            *This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
+            `;
+            
+            try {
+              const response = await github.rest.issues.create({
+                owner: owner,
+                repo: targetRepo,
+                title: originalIssue.title,
+                body: issueBody,
+                labels: originalIssue.labels
+                  .map(label => label.name)
+                  .filter(name => name !== targetRepo) // Remove the repo label
+              });
+              
+              // Add a comment to the original issue with the link to the new issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: originalIssue.number,
+                body: `✅ Issue created in [${targetRepo}#${response.data.number}](${response.data.html_url})`
+              });
+              
+              console.log(`Successfully created issue in ${targetRepo}`);
+            } catch (error) {
+              console.error(`Failed to create issue in ${targetRepo}:`, error);
+              
+              // Comment on the original issue about the failure
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: originalIssue.number,
+                body: `❌ Failed to create issue in ${targetRepo}. Please check the workflow logs.`
+              });
+            }
