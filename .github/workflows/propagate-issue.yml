@@ -18,15 +18,12 @@ jobs:
           LABEL="${{ github.event.label.name }}"
           
           # Define direct submodules (top-level)
-          DIRECT_REPOS=("ai" "backend" "interview-release" "email-handler-release")
+          DIRECT_REPOS=("docling-api" "Inverted-Search-DS-project")
           
           # Define nested submodules with their parent repositories
           # Format: "nested-repo:parent-repo"
           declare -A NESTED_MAP=(
-            ["interview-core"]="interview-release"
-            ["interview-ui"]="interview-release"
-            ["email-sender"]="email-handler-release"
-            ["email-templates"]="email-handler-release"
+            ["Car-Blackbox"]="docling-api"
           )
           
           # Check if label matches any direct repo
