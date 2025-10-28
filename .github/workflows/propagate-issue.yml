@@ -18,12 +18,15 @@ jobs:
           LABEL="${{ github.event.label.name }}"
           
           # Define direct submodules (top-level)
-          DIRECT_REPOS=("docling-api" "Inverted-Search-DS-project")
+          DIRECT_REPOS=("ai" "backend" "interview-release" "email-handler-release")
           
           # Define nested submodules with their parent repositories
           # Format: "nested-repo:parent-repo"
           declare -A NESTED_MAP=(
-            ["Car-Blackbox"]="docling-api"
+            ["interview-core"]="interview-release"
+            ["interview-ui"]="interview-release"
+            ["email-sender"]="email-handler-release"
+            ["email-templates"]="email-handler-release"
           )
           
           # Check if label matches any direct repo
@@ -105,7 +108,7 @@ jobs:
                 issue_number: originalIssue.number,
                 body: `✅ Issue created in [${displayPath}#${response.data.number}](${response.data.html_url})
                 
-            <!-- SYNC_TRACKER: ${targetRepo}:${response.data.number}:${parentRepo || 'direct'} -->`
+            <!-- SYNC_TRACKER: ${targetRepo}:${response.data.number} -->`
               });
               
               console.log(`Successfully created issue in ${displayPath}`);
@@ -247,7 +250,15 @@ jobs:
               } 
               // If the current submodule issue was reopened
               else if (action === 'reopened') {
-                // If the release issue is closed, reopen it
+                // Add comment to release issue
+                await github.rest.issues.createComment({
+                  owner: owner,
+                  repo: releaseRepo,
+                  issue_number: releaseIssueNumber,
+                  body: `🔓 Submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was reopened.`
+                });
+                
+                // If the release issue is closed but a submodule issue was reopened, reopen it
                 if (releaseIssue.data.state === 'closed') {
                   await github.rest.issues.update({
                     owner: owner,
@@ -260,17 +271,10 @@ jobs:
                     owner: owner,
                     repo: releaseRepo,
                     issue_number: releaseIssueNumber,
-                    body: `⚠️ Automatically reopened because linked submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was reopened.`
+                    body: '⚠️ A linked submodule issue was reopened. Automatically reopening this release issue.'
                   });
                   
-                  console.log(`Reopened release issue ${releaseRepo}#${releaseIssueNumber} because ${context.repo.repo}#${issue.number} was reopened`);
-                } else {
-                  await github.rest.issues.createComment({
-                    owner: owner,
-                    repo: releaseRepo,
-                    issue_number: releaseIssueNumber,
-                    body: `🔓 Submodule issue [${context.repo.repo}#${issue.number}](${issue.html_url}) was reopened.`
-                  });
+                  console.log('Submodule issue reopened - reopened release issue');
                 }
               }
               
