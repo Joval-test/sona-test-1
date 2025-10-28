@@ -1,3 +1,5 @@
+# Workflow for Release Repository
+# File: .github/workflows/propagate-issue.yml
 name: Propagate Issue to Submodules
 on:
   issues:
