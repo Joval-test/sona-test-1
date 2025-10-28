@@ -1,3 +1,6 @@
+# Workflow for Release Repository
+# File: .github/workflows/propagate-issue.yml
+
 name: Propagate Issue to Submodules
 
 on:
@@ -12,7 +15,7 @@ jobs:
         id: check-label
         run: |
           LABEL="${{ github.event.label.name }}"
-          VALID_REPOS=("docling-api" "Inverted-Search-DS-project")
+          VALID_REPOS=("backend" "ai" "email-handler" "interview" "interview-ui")
           
           # Check if label matches any valid repo
           MATCHED=false
@@ -33,17 +36,17 @@ jobs:
           github-token: ${{ secrets.SUBMODULE_PAT }}
           script: |
             const targetRepo = '${{ steps.check-label.outputs.target_repo }}';
-            const owner = context.repo.owner; // Change this if repos are in different org
+            const owner = context.repo.owner;
             const originalIssue = context.payload.issue;
             
             // Construct the issue body with reference to original issue
-            const issueBody = `
-            ${originalIssue.body || 'No description provided'}
+            const issueBody = `${originalIssue.body || 'No description provided'}
             
-            ---
-            
-            *This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
-            `;
+---
+
+*This issue was automatically created from [${context.repo.repo}#${originalIssue.number}](${originalIssue.html_url})*
+
+**Linked Release Issue: #${originalIssue.number}**`;
             
             try {
               const response = await github.rest.issues.create({
@@ -53,22 +56,23 @@ jobs:
                 body: issueBody,
                 labels: originalIssue.labels
                   .map(label => label.name)
-                  .filter(name => name !== targetRepo) // Remove the repo label
+                  .filter(name => name !== targetRepo)
               });
               
-              // Add a comment to the original issue with the link to the new issue
+              // Add a comment to the original issue with the link and tracking info
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: originalIssue.number,
-                body: `✅ Issue created in [${targetRepo}#${response.data.number}](${response.data.html_url})`
+                body: `✅ Issue created in [${targetRepo}#${response.data.number}](${response.data.html_url})
+                
+<!-- SYNC_TRACKER: ${targetRepo}:${response.data.number} -->`
               });
               
               console.log(`Successfully created issue in ${targetRepo}`);
             } catch (error) {
               console.error(`Failed to create issue in ${targetRepo}:`, error);
               
-              // Comment on the original issue about the failure
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
